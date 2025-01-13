@@ -1,0 +1,11 @@
+/* front-app/src/components/Footer.module.css */
+.footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #f5f5f5;
+    color: #666;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    left: 0;
+}

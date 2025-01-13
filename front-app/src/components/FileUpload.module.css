@@ -1,0 +1,42 @@
+/* front-app/src/components/FileUpload.module.css */
+.fileUpload {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.uploadSection {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.clearSection {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.clearButton {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clearButton:hover {
+    background-color: #c82333;
+}
+
+.clearButton:disabled {
+    background-color: #dc354580;
+    cursor: not-allowed;
+}
+
+.error {
+    color: #dc3545;
+    margin-top: 10px;
+}
