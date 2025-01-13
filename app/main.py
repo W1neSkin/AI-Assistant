@@ -4,7 +4,7 @@ from utils.validators import FileValidator
 from utils.logger import setup_logger
 from pydantic_settings import BaseSettings
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 import os
 import openai
 from utils.cache import QueryCache
@@ -62,6 +62,14 @@ query_cache = QueryCache(
     port=settings.REDIS_PORT,
     ttl=settings.CACHE_TTL
 )
+
+class DocumentStatus(BaseModel):
+    active: bool
+
+class DocumentResponse(BaseModel):
+    id: str
+    filename: str
+    active: bool
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
@@ -246,4 +254,46 @@ async def clear_all_data():
         raise HTTPException(
             status_code=500,
             detail=f"Error clearing data: {str(e)}"
+        ) 
+
+@app.get("/documents", response_model=List[DocumentResponse])
+async def get_documents():
+    try:
+        logger.info("Fetching all documents")
+        documents = await llama_service.get_documents()
+        return documents
+    except Exception as e:
+        logger.error(f"Error fetching documents: {str(e)}")
+        logger.exception("Full error traceback:")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching documents: {str(e)}"
+        )
+
+@app.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str):
+    try:
+        logger.info(f"Deleting document: {doc_id}")
+        await llama_service.delete_document(doc_id)
+        return {"status": "success", "message": "Document deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting document: {str(e)}")
+        logger.exception("Full error traceback:")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error deleting document: {str(e)}"
+        )
+
+@app.patch("/documents/{doc_id}")
+async def update_document_status(doc_id: str, status: DocumentStatus):
+    try:
+        logger.info(f"Updating document status: {doc_id} -> {status.active}")
+        await llama_service.update_document_status(doc_id, status.active)
+        return {"status": "success", "message": "Document status updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating document status: {str(e)}")
+        logger.exception("Full error traceback:")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating document status: {str(e)}"
         ) 

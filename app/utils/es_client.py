@@ -27,14 +27,21 @@ async def create_vector_store():
             },
             "mappings": {
                 "properties": {
-                    "embedding": {
+                    "metadata": {
+                        "properties": {
+                            "filename": {"type": "keyword"},
+                            "active": {"type": "boolean"},
+                            "doc_id": {"type": "keyword"},
+                            "created_at": {"type": "date"}
+                        }
+                    },
+                    "text": {"type": "text"},
+                    "vector": {
                         "type": "dense_vector",
                         "dims": 384,
                         "index": True,
                         "similarity": "cosine"
-                    },
-                    "text": {"type": "text"},
-                    "metadata": {"type": "object"}
+                    }
                 }
             }
         }

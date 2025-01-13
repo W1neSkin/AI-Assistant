@@ -21,6 +21,12 @@ export interface QuestionResponse {
     };
 }
 
+export interface Document {
+    id: string;
+    filename: string;
+    active: boolean;
+}
+
 export const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -64,6 +70,43 @@ export const clearAllData = async () => {
         console.error('Clear data error:', error);
         if (axios.isAxiosError(error) && error.response?.data) {
             throw new Error(error.response.data.detail || error.response.data.message || 'Failed to clear data');
+        }
+        throw error;
+    }
+};
+
+export const getDocuments = async (): Promise<Document[]> => {
+    try {
+        const response = await axios.get<Document[]>(`${API_URL}/documents`);
+        return response.data;
+    } catch (error) {
+        console.error('Get documents error:', error);
+        if (axios.isAxiosError(error) && error.response?.data) {
+            throw new Error(error.response.data.detail || 'Failed to get documents');
+        }
+        throw error;
+    }
+};
+
+export const deleteDocument = async (docId: string): Promise<void> => {
+    try {
+        await axios.delete(`${API_URL}/documents/${docId}`);
+    } catch (error) {
+        console.error('Delete document error:', error);
+        if (axios.isAxiosError(error) && error.response?.data) {
+            throw new Error(error.response.data.detail || 'Failed to delete document');
+        }
+        throw error;
+    }
+};
+
+export const updateDocumentStatus = async (docId: string, active: boolean): Promise<void> => {
+    try {
+        await axios.patch(`${API_URL}/documents/${docId}`, { active });
+    } catch (error) {
+        console.error('Update document status error:', error);
+        if (axios.isAxiosError(error) && error.response?.data) {
+            throw new Error(error.response.data.detail || 'Failed to update document status');
         }
         throw error;
     }
