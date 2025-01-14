@@ -1,59 +1,13 @@
 /* front-app/src/App.module.css */
 .app {
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
+    height: 100vh;
 }
 
-.content {
+.main {
     flex: 1;
+    overflow: hidden;
     padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-}
-
-.toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 20px;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.documentsButton {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.documentsButton:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.documentsButton:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-
-.documentsButton:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-}
-
-.chatSection {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    background-color: #f8f9fa;
 }

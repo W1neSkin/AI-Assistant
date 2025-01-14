@@ -1,10 +1,20 @@
 import React from 'react';
 import styles from './Header.module.css';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    onManageDocuments: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onManageDocuments }) => {
     return (
         <header className={styles.header}>
-            <h1>Document Q&A System</h1>
+            <h1>Document Q&A</h1>
+            <button 
+                onClick={onManageDocuments}
+                className={styles.documentsButton}
+            >
+                Manage Documents
+            </button>
         </header>
     );
 };
