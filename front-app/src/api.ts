@@ -89,14 +89,13 @@ export const getDocuments = async (): Promise<Document[]> => {
 };
 
 export const deleteDocument = async (docId: string): Promise<void> => {
-    try {
-        await axios.delete(`${API_URL}/documents/${docId}`);
-    } catch (error) {
-        console.error('Delete document error:', error);
-        if (axios.isAxiosError(error) && error.response?.data) {
-            throw new Error(error.response.data.detail || 'Failed to delete document');
-        }
-        throw error;
+    const response = await fetch(`${API_URL}/documents/${docId}`, {
+        method: 'DELETE',
+    });
+
+    if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to delete document');
     }
 };
 

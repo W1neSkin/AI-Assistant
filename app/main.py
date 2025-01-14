@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 # Use the same logger setup as in llama_service
 logger = setup_logger(__name__)
 
-ALLOWED_EXTENSIONS = {'.txt', '.pdf', '.doc', '.docx'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'html', 'docx'}
 
 class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(..., description="OpenAI API Key")
@@ -297,3 +297,7 @@ async def update_document_status(doc_id: str, status: DocumentStatus):
             status_code=500,
             detail=f"Error updating document status: {str(e)}"
         ) 
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS 

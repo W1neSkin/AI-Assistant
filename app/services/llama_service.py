@@ -2,7 +2,8 @@ from llama_index.core import (
     VectorStoreIndex, 
     SimpleDirectoryReader, 
     Settings,
-    StorageContext
+    StorageContext,
+    Document
 )
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from utils.es_client import create_vector_store
@@ -11,6 +12,7 @@ from typing import Dict, Any, List
 import tempfile
 import os
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 logger = setup_logger(__name__)
 
@@ -37,8 +39,19 @@ class LlamaIndexService:
                 with open(file_path, 'wb') as f:
                     f.write(content)
                 
-                # Load and process documents
-                documents = SimpleDirectoryReader(input_dir=temp_dir).load_data()
+                # Choose reader based on file extension
+                if filename.lower().endswith('.html'):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        soup = BeautifulSoup(f.read(), 'html.parser')
+                        # Remove script and style elements
+                        for script in soup(["script", "style"]):
+                            script.decompose()
+                        # Get text and create document
+                        text = soup.get_text(separator='\n', strip=True)
+                        documents = [Document(text=text)]
+                else:
+                    documents = SimpleDirectoryReader(input_dir=temp_dir).load_data()
+                
                 logger.info(f"Loaded {len(documents)} document chunks")
                 
                 # Process each document chunk
@@ -190,3 +203,25 @@ class LlamaIndexService:
                 logger.info(f"Vector dimension: {len(doc.get('vector', []))}")
         except Exception as e:
             logger.error(f"Error inspecting index: {str(e)}") 
+
+    async def delete_document(self, doc_id: str) -> None:
+        """Delete a document and its chunks from the index"""
+        try:
+            await self.initialize()
+            # Delete all chunks with matching doc_id
+            await self.vector_store.client.delete_by_query(
+                index="documents",
+                body={
+                    "query": {
+                        "term": {
+                            "metadata.doc_id.keyword": doc_id
+                        }
+                    }
+                },
+                refresh=True
+            )
+            logger.info(f"Successfully deleted document {doc_id}")
+        except Exception as e:
+            logger.error(f"Error deleting document {doc_id}: {str(e)}")
+            logger.exception("Full error traceback:")
+            raise 

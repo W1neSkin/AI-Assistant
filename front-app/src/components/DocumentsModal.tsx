@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { uploadFile, clearAllData, getDocuments, deleteDocument, updateDocumentStatus } from '../api';
 import styles from './DocumentsModal.module.css';
+import { ACCEPT_TYPES } from '../constants';
 
 interface Document {
     id: string;
@@ -19,6 +20,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose }) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -36,22 +38,19 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files) {
-            setSelectedFile(event.target.files[0]);
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files && event.target.files[0]) {
+            const file = event.target.files[0];
+            setSelectedFile(file);
             setError(null);
-        }
-    };
-
-    const handleUpload = async () => {
-        if (selectedFile) {
+            
+            // Upload immediately after file selection
             setLoading(true);
             try {
-                await uploadFile(selectedFile);
+                await uploadFile(file);
                 await loadDocuments();
                 setSelectedFile(null);
-                const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                if (fileInput) fileInput.value = '';
+                event.target.value = ''; // Reset file input
             } catch (error) {
                 setError(error instanceof Error ? error.message : 'Upload failed');
             } finally {
@@ -74,10 +73,15 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose }) => {
     const handleDeleteDocument = async (docId: string, filename: string) => {
         if (window.confirm(`Are you sure you want to delete "${filename}"?`)) {
             try {
+                setLoading(true);
+                setError(null);
                 await deleteDocument(docId);
-                await loadDocuments();
+                await loadDocuments();  // Refresh the list after deletion
             } catch (error) {
-                setError('Failed to delete document');
+                console.error('Delete error:', error);
+                setError(error instanceof Error ? error.message : 'Failed to delete document');
+            } finally {
+                setLoading(false);
             }
         }
     };
@@ -109,14 +113,16 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose }) => {
                     <input 
                         type="file" 
                         onChange={handleFileChange}
-                        accept=".txt,.pdf,.doc,.docx"
+                        accept={ACCEPT_TYPES}
+                        style={{ display: 'none' }}
+                        ref={fileInputRef}
                     />
                     <button 
-                        onClick={handleUpload}
-                        disabled={loading || !selectedFile}
+                        onClick={() => fileInputRef.current?.click()}
                         className={styles.uploadButton}
+                        disabled={loading}
                     >
-                        {loading ? 'Uploading...' : 'Upload'}
+                        {loading ? 'Uploading...' : 'Upload Document'}
                     </button>
                 </div>
 

@@ -9,6 +9,7 @@ uvicorn>=0.27.0
 python-multipart>=0.0.6
 pydantic-settings>=2.1.0
 openai>=1.6.1
+beautifulsoup4
 
 # File handling and validation
 python-magic>=0.4.27

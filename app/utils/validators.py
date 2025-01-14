@@ -18,9 +18,10 @@ class FileValidator:
                 detail=f"File too large. Maximum size is {self.max_size/1024/1024}MB"
             )
 
-        # Check file extension
-        file_ext = os.path.splitext(filename)[1].lower()
-        if file_ext not in self.allowed_extensions:
+        # Get file extension without the dot
+        extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        
+        if extension not in self.allowed_extensions:
             raise HTTPException(
                 status_code=400,
                 detail=f"File type not allowed. Supported types: {', '.join(self.allowed_extensions)}"
@@ -29,13 +30,14 @@ class FileValidator:
         # Check mime type
         mime_type = self.mime.from_buffer(content)
         allowed_mimes = {
-            '.txt': 'text/plain',
-            '.pdf': 'application/pdf',
-            '.doc': 'application/msword',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            'txt': 'text/plain',
+            'pdf': 'application/pdf',
+            'html': 'text/html',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         }
 
-        if file_ext in allowed_mimes and mime_type != allowed_mimes[file_ext]:
+        expected_mime = allowed_mimes.get(extension)
+        if expected_mime and not mime_type.startswith(expected_mime):
             raise HTTPException(
                 status_code=400,
                 detail=f"File content doesn't match its extension"
