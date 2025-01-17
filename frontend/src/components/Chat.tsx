@@ -1,4 +1,5 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import ModelToggle from './ModelToggle';
 import styles from './Chat.module.css';
 import { API_BASE_URL } from '../config';
 
@@ -36,6 +37,11 @@ interface ApiResponse {
     time_taken: number;
 }
 
+interface ModelInfo {
+    models: string[];
+    current: string;
+}
+
 const formatSources = (context: ChatMessage['context']) => {
     if (!context?.source_nodes?.length) return '';
     
@@ -60,6 +66,24 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const [loading, setLoading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isLocalModel, setIsLocalModel] = useState<boolean>(true);
+    const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+    useEffect(() => {
+        // Fetch available models on component mount
+        const fetchModels = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/models`);
+                const data: ModelInfo = await response.json();
+                setAvailableModels(data.models);
+                setIsLocalModel(data.current === 'local');
+            } catch (error) {
+                console.error('Error fetching models:', error);
+            }
+        };
+
+        fetchModels();
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,7 +114,15 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/question/${encodeURIComponent(question)}`);
+            const response = await fetch(`${API_BASE_URL}/question/${encodeURIComponent(question)}`, {
+                headers: {
+                    'X-Model-Type': isLocalModel ? 'local' : 'openai'
+                }
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to get answer');
+            }
             const data: ApiResponse = await response.json();
 
             setMessages(prev => [...prev, {
@@ -100,11 +132,13 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                 time_taken: data.time_taken
             }]);
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
             setMessages(prev => [...prev, {
                 type: 'answer',
-                text: 'Sorry, an error occurred while getting the answer.',
+                text: `Error: ${errorMessage}`,
                 sources: []
             }]);
+            console.error('Error in handleSubmit:', error);
         } finally {
             setLoading(false);
         }
@@ -145,6 +179,12 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                         onKeyDown={handleKeyDown}
                         placeholder="Type your question and press Enter to send (Shift+Enter for new line)"
                         className={styles.input}
+                    />
+                    <ModelToggle
+                        isLocal={isLocalModel}
+                        onToggle={setIsLocalModel}
+                        disabled={loading}
+                        models={availableModels}
                     />
                     <div className={styles.buttonGroup}>
                         <button 

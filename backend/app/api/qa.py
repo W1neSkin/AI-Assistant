@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from urllib.parse import unquote
@@ -8,8 +8,13 @@ from app.utils.cache import QueryCache
 from app.core.config import settings
 from app.services.llm_factory import create_llm
 from app.utils.logger import setup_logger
+from enum import Enum
 
 logger = setup_logger(__name__)
+
+class ModelType(str, Enum):
+    LOCAL = "local"
+    OPENAI = "openai"
 
 router = APIRouter()
 
@@ -105,6 +110,7 @@ async def query_document(
 @router.get("/question/{query}")
 async def get_answer(
     query: str,
+    model_type: str = Header("local", alias="X-Model-Type"),
     services: tuple = Depends(get_services)
 ):
     """Get an answer for a question."""
@@ -128,8 +134,9 @@ async def get_answer(
         # Format prompt based on language
         prompt = format_prompt(decoded_query, context_text)
         
-        # Generate answer
-        answer = await local_llm.generate_answer(prompt)
+        # Select model based on header
+        llm = await create_llm(model_type)
+        answer = await llm.generate_answer(prompt)
         
         response = {
             "answer": answer,
@@ -143,4 +150,12 @@ async def get_answer(
         return response
     except Exception as e:
         logger.error(f"Error processing query '{query}': {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/models")
+async def get_available_models():
+    """Get list of available model types."""
+    return {
+        "models": [model.value for model in ModelType],
+        "current": settings.LLM_PROVIDER
+    } 

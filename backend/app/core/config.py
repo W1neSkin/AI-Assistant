@@ -4,7 +4,7 @@ from typing import Set, Literal
 
 class Settings(BaseSettings):
     # LLM Settings
-    LLM_PROVIDER: Literal["local", "openai"] = "local"
+    LLM_PROVIDER: str = "local"
     OPENAI_API_KEY: str = Field("", description="OpenAI API Key")
     OPENAI_MODEL: str = Field("gpt-3.5-turbo", description="OpenAI Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
