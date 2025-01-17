@@ -25,7 +25,8 @@ services:
       - app-network
 
   app:
-    build: ./app
+    build:
+      context: ./backend
     ports:
       - "8000:8000"
     healthcheck:
@@ -44,13 +45,21 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-local}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
+      - TEMPERATURE=${TEMPERATURE:-0.7}
+      - DOCKER_BUILDKIT=1
     env_file:
       - .env
     networks:
       - app-network
+    volumes:
+      - ./backend:/app
+      - llama2_model:/app/models
 
   frontend:
-    build: ./front-app
+    build:
+      context: ./frontend
     ports:
       - "3000:3000"
     environment:
@@ -78,6 +87,7 @@ services:
 
 volumes:
   elasticsearch-data:
+  llama2_model:
 
 networks:
   app-network:

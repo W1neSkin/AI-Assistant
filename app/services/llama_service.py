@@ -13,6 +13,7 @@ import tempfile
 import os
 from datetime import datetime
 from bs4 import BeautifulSoup
+from llama_cpp import Llama
 
 logger = setup_logger(__name__)
 
@@ -225,3 +226,145 @@ class LlamaIndexService:
             logger.error(f"Error deleting document {doc_id}: {str(e)}")
             logger.exception("Full error traceback:")
             raise 
+
+class LocalLLM:
+    def __init__(self, model_path: str):
+        self.model = Llama(
+            model_path=model_path,
+            n_ctx=4096,
+            n_threads=4,
+            n_batch=512,
+            verbose=True,
+            f16_kv=True
+        )
+        
+    def estimate_tokens(self, text: str) -> int:
+        # More conservative token estimation
+        return int(len(text.encode('utf-8')) / 3)  # Rough byte-to-token ratio
+        
+    def truncate_context(self, context: str, max_tokens: int) -> str:
+        # Split into sentences for more natural truncation
+        sentences = context.split('. ')
+        truncated = []
+        current_tokens = 0
+        
+        for sentence in sentences:
+            tokens = self.estimate_tokens(sentence)
+            if current_tokens + tokens > max_tokens:
+                break
+            truncated.append(sentence)
+            current_tokens += tokens
+        
+        return '. '.join(truncated)
+        
+    async def generate_answer(self, prompt: str) -> str:
+        # Detect if query is in Russian
+        is_russian = any(ord(char) >= 1040 and ord(char) <= 1103 for char in prompt)
+        
+        # Extract question and context
+        question_start = prompt.find("answer the question:") + 19
+        context_start = prompt.find("Context:") + 8
+        
+        question = prompt[question_start:context_start].strip()
+        context = prompt[context_start:].strip()
+        
+        # Calculate available tokens for context
+        instruction_tokens = 300  # Increased for safety
+        question_tokens = self.estimate_tokens(question)
+        response_tokens = 512  # Reserved for response
+        available_tokens = 2500  # More conservative limit for context
+        
+        # Truncate context if needed
+        if self.estimate_tokens(context) > available_tokens:
+            context = self.truncate_context(context, available_tokens)
+        
+        # Format prompt based on language
+        if is_russian:
+            formatted_prompt = (
+                "<s>[INST] Ты русскоязычный ассистент. "
+                "Твоя задача - отвечать ТОЛЬКО на русском языке. "
+                "Посторайся использовать ТОЛЬКО информацию из предоставленного контекста. "
+                "Если в контексте недостаточно информации, ответь: "
+                "\"Извините, в предоставленном контексте недостаточно информации для ответа на этот вопрос.\"\n\n"
+                f"Вопрос: {question}\n\nКонтекст: {context} [/INST]</s>"
+            )
+        else:
+            formatted_prompt = (
+                "<s>[INST] You are a helpful assistant. "
+                "Please provide a detailed answer based on the given context. "
+                "Answer should be factual and based only on the provided context.\n\n"
+                f"Question: {question}\n\nContext: {context} [/INST]</s>"
+            )
+
+        try:
+            response = self.model.create_completion(
+                prompt=formatted_prompt,
+                max_tokens=512,
+                temperature=0.7,
+                top_p=0.9,
+                top_k=40,
+                stop=["</s>", "[INST]", "Human:", "Assistant:"],
+                echo=False
+            )
+            
+            answer = response['choices'][0]['text'].strip()
+            
+            # For Russian queries, ensure answer is in Russian
+            if is_russian and not any(ord(char) >= 1040 and ord(char) <= 1103 for char in answer):
+                logger.warning("Answer not in Russian, forcing translation")
+                translation_prompt = (
+                    "[INST] Переведи следующий текст на русский язык, "
+                    "сохраняя всю фактическую информацию:\n\n"
+                    f"{answer} [/INST]"
+                )
+                
+                response = self.model.create_completion(
+                    prompt=translation_prompt,
+                    max_tokens=512,
+                    temperature=0.3,  # Lower temperature for translation
+                    stop=["</s>", "[INST]"],
+                    echo=False
+                )
+                answer = response['choices'][0]['text'].strip()
+            
+            return answer
+            
+        except ValueError as e:
+            if "exceed context window" in str(e):
+                # Fallback with even shorter context
+                context_start = formatted_prompt.find("\n\n") + 2
+                context = formatted_prompt[context_start:-7]
+                words = context.split()
+                truncated_words = words[:1500]
+                truncated_context = ' '.join(truncated_words)
+                formatted_prompt = formatted_prompt[:context_start] + truncated_context + " [/INST]"
+                
+                response = self.model.create_completion(
+                    prompt=formatted_prompt,
+                    max_tokens=512,
+                    temperature=0.7,
+                    top_p=0.9,
+                    top_k=40,
+                    stop=["</s>", "[INST]"],
+                    echo=False
+                )
+                
+                answer = response['choices'][0]['text'].strip()
+                
+                # Check for Russian translation need in fallback case too
+                if is_russian and not any(ord(char) >= 1040 and ord(char) <= 1103 for char in answer):
+                    translation_prompt = (
+                        "[INST] Переведи следующий текст на русский язык:\n\n"
+                        f"{answer} [/INST]"
+                    )
+                    response = self.model.create_completion(
+                        prompt=translation_prompt,
+                        max_tokens=512,
+                        temperature=0.3,
+                        stop=["</s>", "[INST]"],
+                        echo=False
+                    )
+                    answer = response['choices'][0]['text'].strip()
+                
+                return answer
+            raise e 

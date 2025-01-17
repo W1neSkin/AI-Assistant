@@ -1,0 +1,32 @@
+# Core dependencies
+llama-index-core
+llama-index-vector-stores-elasticsearch
+llama-index-embeddings-huggingface
+llama-index-readers-file
+elasticsearch[async]>=8.11.0,<9.0.0
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.6
+pydantic-settings>=2.1.0
+openai>=1.6.1
+beautifulsoup4
+
+# File handling and validation
+python-magic>=0.4.27
+pypdf>=3.17.1
+python-docx>=1.0.1
+docx2txt>=0.8
+
+# Caching
+redis>=5.0.1
+
+# Machine Learning (CPU only)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+transformers
+sentence-transformers
+
+# Llama CPP Python
+llama-cpp-python==0.2.23
+# Environment variables
+python-dotenv>=1.0.0
