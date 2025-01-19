@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+
+# Model storage
+backend/app/storage/models/llm/*
+backend/app/storage/models/embeddings/*
+!backend/app/storage/models/llm/.gitkeep
+!backend/app/storage/models/embeddings/.gitkeep 
