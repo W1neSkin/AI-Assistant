@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir \
 COPY . .
 
 # Create models directory
-RUN mkdir -p /app/models
+RUN mkdir -p /app/storage/models/{llm,embeddings}
 
 # Make download script executable
 RUN dos2unix /app/download_model.sh && \

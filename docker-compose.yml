@@ -55,7 +55,10 @@ services:
       - app-network
     volumes:
       - ./backend:/app
-      - llama2_model:/app/models
+      - type: bind
+        source: ./backend/models
+        target: /app/models
+        consistency: cached
 
   frontend:
     build:

@@ -6,10 +6,10 @@
 **/.tox/
 **/.coverage
 **/*.log
-storage/models/llm/*
-storage/models/embeddings/*
-!storage/models/llm/.gitkeep
-!storage/models/embeddings/.gitkeep
+app/storage/models/llm/*
+app/storage/models/embeddings/*
+!app/storage/models/llm/.gitkeep
+!app/storage/models/embeddings/.gitkeep
 # Exclude potentially problematic files
 **/*.pyc
 **/*.pyo

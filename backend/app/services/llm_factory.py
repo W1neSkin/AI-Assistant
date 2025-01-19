@@ -17,7 +17,7 @@ async def create_llm(model_type: str = None):
             if not settings.OPENAI_API_KEY:
                 raise ValueError("OpenAI API key is not configured")
             return OpenAILLM()
-        return LocalLLM(model_path="./models/mistral.gguf")
+        return LocalLLM(model_path="/app/storage/models/llm/mistral.gguf")
     except Exception as e:
         logger.error(f"Error creating LLM: {str(e)}")
         raise HTTPException(
