@@ -26,7 +26,7 @@ logger = setup_logger(__name__)
 def create_embedding_model():
     return HuggingFaceEmbedding(
         model_name="BAAI/bge-small-en",
-        cache_folder="./models"
+        cache_folder="/app/storage/models/embeddings"
     )
 
 class LlamaIndexService:

@@ -56,8 +56,8 @@ services:
     volumes:
       - ./backend:/app
       - type: bind
-        source: ./backend/models
-        target: /app/models
+        source: ./backend/app/storage/models
+        target: /app/storage/models
         consistency: cached
 
   frontend:
@@ -90,7 +90,6 @@ services:
 
 volumes:
   elasticsearch-data:
-  llama2_model:
 
 networks:
   app-network:
