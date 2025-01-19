@@ -1,4 +1,5 @@
 # Core dependencies
+backoff>=2.2.1
 llama-index-core
 llama-index-vector-stores-elasticsearch
 llama-index-embeddings-huggingface
@@ -9,7 +10,7 @@ uvicorn>=0.27.0
 python-multipart>=0.0.6
 pydantic-settings>=2.1.0
 openai>=1.6.1
-beautifulsoup4
+beautifulsoup4>=4.12.0
 
 # File handling and validation
 python-magic>=0.4.27
@@ -30,3 +31,6 @@ sentence-transformers
 llama-cpp-python==0.2.23
 # Environment variables
 python-dotenv>=1.0.0
+
+# URL handling
+aiohttp>=3.9.0

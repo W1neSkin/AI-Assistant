@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     CACHE_TTL: int = 3600  # 1 hour
 
+    # URL Settings
+    URL_FETCH_TIMEOUT: int = Field(10, description="Timeout for URL fetching in seconds")
+    MAX_URL_CONTENT_SIZE: int = Field(5 * 1024 * 1024, description="Max URL content size (5MB)")
+    URL_CACHE_TTL: int = Field(3600, description="URL cache TTL in seconds")
+
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

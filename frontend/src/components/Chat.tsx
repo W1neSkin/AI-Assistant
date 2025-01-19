@@ -114,7 +114,9 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/question/${encodeURIComponent(question)}`, {
+            // Double encode to handle URLs in the query
+            const encodedQuery = encodeURIComponent(encodeURIComponent(question));
+            const response = await fetch(`${API_BASE_URL}/question/${encodedQuery}`, {
                 headers: {
                     'X-Model-Type': isLocalModel ? 'local' : 'openai'
                 }

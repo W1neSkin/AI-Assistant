@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.services.llm_factory import create_llm
 from app.utils.logger import setup_logger
 from enum import Enum
+from app.utils.url_handler import URLHandler
 
 logger = setup_logger(__name__)
 
@@ -114,25 +115,42 @@ async def get_answer(
     services: tuple = Depends(get_services)
 ):
     """Get an answer for a question."""
-    index_service, local_llm, query_cache = services
+    index_service, _, query_cache = services
     
     try:
         start_time = time.time()
-        decoded_query = unquote(query)
+        # Double decode to handle URLs in the query
+        decoded_query = unquote(unquote(query))
         
-        # Check cache first
-        cached_response = await query_cache.get(decoded_query)
-        if cached_response:
-            return cached_response
-
+        # Handle URLs in query
+        url_handler = URLHandler(query_cache)
+        urls = url_handler.extract_urls(decoded_query)
+        url_contents = []
+        url_errors = []
+        
+        for url in urls:
+            content, error = await url_handler.fetch_url_content(url)
+            if content:
+                url_contents.append(content)
+            if error:
+                url_errors.append(error)
+        
         # Get relevant documents
         context = await index_service.query_index(decoded_query)
         
         # Format context text
         context_text = ' '.join([node['text'] for node in context['source_nodes']])
         
+        # Combine document context with URL content
+        if url_contents:
+            context_text = context_text + '\n\n' + '\n'.join(url_contents)
+        
         # Format prompt based on language
         prompt = format_prompt(decoded_query, context_text)
+        
+        # Add URL errors to prompt if any
+        if url_errors:
+            prompt += f"\n\nNote: Some URLs could not be processed: {'; '.join(url_errors)}"
         
         # Select model based on header
         llm = await create_llm(model_type)
@@ -143,9 +161,6 @@ async def get_answer(
             "context": context,
             "time_taken": round(time.time() - start_time, 2)
         }
-        
-        # Cache the response
-        await query_cache.set(decoded_query, response)
         
         return response
     except Exception as e:

@@ -12,14 +12,31 @@ import uuid
 from typing import List, Dict, Any
 import tempfile
 import os
+import time
+import backoff
 
 logger = setup_logger(__name__)
 
+@backoff.on_exception(
+    backoff.expo,
+    Exception,
+    max_tries=3,
+    max_time=30
+)
+def create_embedding_model():
+    return HuggingFaceEmbedding(
+        model_name="BAAI/bge-small-en",
+        cache_folder="./models/embeddings"
+    )
+
 class LlamaIndexService:
     def __init__(self):
-        self.embed_model = HuggingFaceEmbedding(
-            model_name="BAAI/bge-small-en"
-        )
+        try:
+            self.embed_model = create_embedding_model()
+            logger.info("Embedding model initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing embedding model: {str(e)}")
+            raise
         self.node_parser = SimpleNodeParser.from_defaults()
         Settings.embed_model = self.embed_model
         Settings.node_parser = self.node_parser
