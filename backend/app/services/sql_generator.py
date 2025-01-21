@@ -2,11 +2,11 @@ from typing import Optional, List, Dict, Any
 from app.utils.exceptions import SQLGenerationError
 from app.utils.cache import QueryCache
 from app.utils.query_optimizer import QueryOptimizer
-import logging
+from app.utils.logger import setup_logger
 import hashlib
 import re
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class SQLGenerator:
     def __init__(self, schema: str, llm_service=None):
@@ -188,10 +188,12 @@ class SQLGenerator:
             logger.debug(f"Total prompt size (chars): {len(prompt)}")
             logger.debug(f"Prompt: {prompt}")
 
-            sql_query = await self.llm_service.generate_answer(prompt)
+            response = await self.llm_service.generate_answer(prompt)
+            sql_query = response["answer"] if isinstance(response, dict) else response
+            logger.info(f"Generated SQL query: {sql_query}")
             
             # Cache the result
-            await self.cache.set(key=cache_key, value=sql_query, ttl=self.cache_ttl)
+            await self.cache.set(cache_key, sql_query)
             
             return sql_query
 

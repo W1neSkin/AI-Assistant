@@ -1,8 +1,8 @@
 from typing import Dict, Any
 import re
-import logging
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class QueryOptimizer:
     @classmethod

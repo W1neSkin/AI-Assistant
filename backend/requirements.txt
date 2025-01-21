@@ -4,6 +4,7 @@ llama-index-core
 llama-index-vector-stores-elasticsearch
 llama-index-embeddings-huggingface
 llama-index-readers-file
+llama-index-llms-llama-cpp
 elasticsearch[async]>=8.11.0,<9.0.0
 fastapi>=0.109.0
 uvicorn>=0.27.0
@@ -28,9 +29,14 @@ transformers
 sentence-transformers
 
 # Llama CPP Python
-llama-cpp-python==0.2.23
+llama-cpp-python
 # Environment variables
 python-dotenv>=1.0.0
 
 # URL handling
 aiohttp>=3.9.0
+
+# Database
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.0
+alembic>=1.13.0

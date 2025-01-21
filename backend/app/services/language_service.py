@@ -1,7 +1,7 @@
 from urllib.parse import unquote
-import logging
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class LanguageService:
     def is_russian(self, text: str) -> bool:

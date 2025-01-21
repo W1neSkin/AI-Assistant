@@ -2,9 +2,9 @@ from app.core.config import settings
 from app.services.local_llm import LocalLLM
 from app.services.openai_llm import OpenAILLM
 from fastapi import HTTPException
-import logging
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 async def create_llm(model_type: str = None):
     """Create LLM instance based on configuration."""

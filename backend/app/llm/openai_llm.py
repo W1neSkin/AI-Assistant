@@ -9,6 +9,17 @@ class OpenAILLM:
         self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = settings.OPENAI_MODEL
         
+    async def initialize(self):
+        """Initialize OpenAI client"""
+        try:
+            logger.info(f"Initializing OpenAI LLM with model: {self.model}")
+            # Test connection by listing models
+            await self.client.models.list()
+            logger.info("OpenAI LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI LLM: {str(e)}")
+            raise
+
     async def generate_answer(self, prompt: str) -> str:
         """Generate answer using OpenAI API."""
         try:

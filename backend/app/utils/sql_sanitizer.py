@@ -1,25 +1,29 @@
 import re
 from typing import List, Any, Tuple
-import logging
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class SQLSanitizer:
     # SQL keywords that might be used in injection attacks
     DANGEROUS_KEYWORDS = {
         'delete', 'drop', 'truncate', 'alter', 'update', 'insert', 'grant', 
-        'revoke', 'commit', 'rollback', 'create', 'exec', 'execute', 'union',
-        'having', 'begin', 'declare', '--', ';', 'xp_', 'sp_'
+        'revoke', 'commit', 'rollback', 'create', 'exec', 'execute',
+        'begin', 'declare', '--', 'xp_', 'sp_'
     }
 
-    @classmethod
-    def sanitize_query(cls, query: str) -> str:
+    def sanitize_query(self, query: str) -> str:
         """Sanitize SQL query by removing dangerous patterns"""
+        # Clean up the query
+        query = query.strip()
+        if query.endswith(';'):
+            query = query[:-1]  # Remove trailing semicolon
+        
         # Convert to lowercase for checking
         query_lower = query.lower()
         
         # Check for dangerous keywords
-        for keyword in cls.DANGEROUS_KEYWORDS:
+        for keyword in self.DANGEROUS_KEYWORDS:
             if keyword in query_lower:
                 raise ValueError(f"Dangerous SQL keyword detected: {keyword}")
         
@@ -27,10 +31,13 @@ class SQLSanitizer:
         if not query_lower.strip().startswith('select'):
             raise ValueError("Only SELECT queries are allowed")
         
+        # Add LIMIT if not present
+        if 'limit' not in query_lower:
+            query = f"{query} LIMIT 1000"
+        
         return query
 
-    @classmethod
-    def extract_params(cls, query: str) -> Tuple[str, List[Any]]:
+    def extract_params(self, query: str) -> Tuple[str, List[Any]]:
         """Convert string literals to parameters"""
         params = []
         
@@ -56,9 +63,9 @@ class SQLSanitizer:
             query
         )
         
-        return parameterized_query, params
+        # Convert params list to tuple for asyncpg
+        return parameterized_query, tuple(params)
 
-    @classmethod
     def validate_complex_query(cls, query: str) -> None:
         """Validate complex query structure"""
         query_lower = query.lower()
@@ -129,22 +136,7 @@ class SQLSanitizer:
             if not re.search(r"interval '\d+\s+(?:year|month|day|hour|minute|second)'", query_lower):
                 logger.warning("Date/time manipulation without proper interval specification")
 
-    @classmethod
-    def sanitize_query(cls, query: str) -> str:
-        """Sanitize SQL query with enhanced validation"""
-        query = super().sanitize_query(query)
-        
-        # Additional validations for complex queries
-        cls.validate_complex_query(query)
-        
-        # Ensure proper LIMIT clause
-        if 'limit' not in query.lower():
-            query = f"{query.rstrip(';')} LIMIT 1000"
-            
-        return query
 
-    @classmethod
-    def extract_params(cls, query: str) -> Tuple[str, List[Any]]:
         """Extract parameters with enhanced handling"""
         params = []
         

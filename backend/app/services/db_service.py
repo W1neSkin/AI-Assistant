@@ -4,15 +4,13 @@ from sqlalchemy import text
 from app.utils.exceptions import DatabaseQueryError, SchemaError
 from app.utils.cache import QueryCache
 from app.utils.sql_sanitizer import SQLSanitizer
-import logging
-from typing import List, Dict, Any, Union, Tuple
+from app.utils.logger import setup_logger
+from typing import List, Dict, Any, Union
 import hashlib
-import json
-import os
 import asyncpg
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class DatabaseService:
     def __init__(self):
@@ -110,8 +108,12 @@ class DatabaseService:
                 params = query['params']
             else:
                 # For direct string queries (internal use only)
-                query_text = SQLSanitizer.sanitize_query(query)
-                params = []
+                sanitizer = SQLSanitizer()
+                sanitized_query = sanitizer.sanitize_query(query)
+                # Extract parameters if any
+                query_text, params = sanitizer.extract_params(sanitized_query)
+                logger.info(f"Sanitized query: {query_text}")
+                logger.info(f"Params: {params}")
 
             # Check cache first if enabled
             if use_cache:
@@ -123,7 +125,17 @@ class DatabaseService:
 
             async with self.async_session() as session:
                 try:
-                    result = await session.execute(text(query_text), params)
+                    # Convert params to list of dictionaries for SQLAlchemy
+                    if params:
+                        # Replace $1, $2 style params with :param_0, :param_1 style
+                        for i in range(len(params)):
+                            query_text = query_text.replace(f"${i+1}", f":param_{i}")
+                        param_dict = {f"param_{i}": val for i, val in enumerate(params)}
+                        logger.info(f"Executing query with params: {param_dict}")
+                        result = await session.execute(text(query_text), param_dict)
+                    else:
+                        result = await session.execute(text(query_text))
+                    
                     data = [dict(row._mapping) for row in result]
 
                     # Cache the results if enabled

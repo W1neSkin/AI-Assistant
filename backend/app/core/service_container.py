@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 from app.services.llm_service import LLMService
 from app.services.db_service import DatabaseService
 from app.services.url_service import URLService
@@ -7,8 +6,10 @@ from app.services.index_service import LlamaIndexService
 from app.services.language_service import LanguageService
 from app.services.cache_service import CacheService
 from app.services.sql_generator import SQLGenerator
+from app.services.qa_service import QAService
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class ServiceContainer:
     _instance = None
@@ -21,6 +22,7 @@ class ServiceContainer:
         self.lang_service = None
         self.cache_service = None
         self.sql_generator = None
+        self.qa_service = None
 
     @classmethod
     def get_instance(cls):
@@ -45,13 +47,26 @@ class ServiceContainer:
             )
             await self.sql_generator.initialize()
 
-            # Other services...
-            self.url_service = URLService()
-            self.index_service = LlamaIndexService()
-            self.lang_service = LanguageService()
+            # Initialize cache first as it's needed by URL service
             self.cache_service = CacheService()
+            
+            # Initialize URL service with cache
+            self.url_service = URLService(self.cache_service)
 
+            self.index_service = LlamaIndexService()
             await self.index_service.initialize()
+            
+            self.lang_service = LanguageService()
+            
+            self.qa_service = QAService()
+            self.qa_service.initialize(
+                self.llm_service,
+                self.index_service,
+                self.url_service,
+                self.cache_service,
+                self.lang_service
+            )
+
             logger.info("All services initialized successfully")
 
         except Exception as e:

@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = Field("gpt-3.5-turbo", description="OpenAI Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
     MAX_TOKENS: int = 512
+    LLM_MODEL_PATH: str = Field(
+        "/app/storage/models/llm/mistral.gguf",
+        description="Path to local LLM model file"
+    )
+    
+    # Search Settings
+    DEFAULT_INCLUDE_DOCS: bool = Field(True, description="Include document search by default")
     
     # Vector Store Settings
     ES_HOST: str = "elasticsearch"
@@ -22,6 +29,13 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     CACHE_TTL: int = 3600  # 1 hour
+
+    # Database Settings
+    POSTGRES_USER: str = Field("dbuser", description="PostgreSQL username")
+    POSTGRES_PASSWORD: str = Field("dbpass", description="PostgreSQL password")
+    POSTGRES_DB: str = Field("customerdb", description="PostgreSQL database name")
+    POSTGRES_HOST: str = Field("postgres", description="PostgreSQL host")
+    POSTGRES_PORT: int = Field(5432, description="PostgreSQL port")
 
     # URL Settings
     URL_FETCH_TIMEOUT: int = Field(10, description="Timeout for URL fetching in seconds")

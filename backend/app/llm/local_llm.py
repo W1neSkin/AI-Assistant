@@ -5,30 +5,42 @@ logger = setup_logger(__name__)
 
 class LocalLLM:
     def __init__(self, model_path: str):
-        self.model = Llama(
-            model_path=model_path,
-            n_ctx=4096,
-            n_threads=4,
-            n_batch=512,
-            verbose=True,
-            f16_kv=True
-        )
+        self.model_path = model_path
+        self.model = None
     
-    async def generate_answer(self, prompt: str) -> str:
-        """Generate answer from a formatted prompt."""
+    async def initialize(self):
+        """Initialize the local LLM model"""
         try:
+            logger.info(f"Initializing local LLM with model: {self.model_path}")
+            self.model = Llama(
+                model_path=self.model_path,
+                n_ctx=2048,  # Context window
+                n_threads=4,  # CPU threads
+                verbose=False
+            )
+            logger.info("Local LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize local LLM: {str(e)}")
+            raise
+
+    async def generate_answer(self, prompt: str) -> str:
+        """Generate answer using local LLM"""
+        try:
+            # 1. Initialize model if needed
+            if not self.model:
+                await self.initialize()
+
+            # 2. Generate completion
             response = self.model.create_completion(
                 prompt=prompt,
                 max_tokens=512,
-                temperature=0.7,
-                top_p=0.9,
                 top_k=40,
-                stop=["</s>", "[INST]", "Human:", "Assistant:"],
-                echo=False
+                top_p=0.95,
+                repeat_penalty=1.1
             )
             
+            # 3. Return cleaned response
             return response['choices'][0]['text'].strip()
-            
         except Exception as e:
             logger.error(f"Error generating answer: {str(e)}")
             raise

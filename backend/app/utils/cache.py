@@ -1,11 +1,10 @@
 import redis.asyncio as redis
 from typing import Optional, Any, Dict
 import json
-import logging
 import hashlib
 from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class QueryCache:
     def __init__(self, host: str = "redis", port: int = 6379, ttl: int = 3600):

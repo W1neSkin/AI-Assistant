@@ -1,87 +1,134 @@
 from typing import Dict, Any, Optional
-from app.core.service_container import ServiceContainer
-from app.services.sql_generator import SQLGenerator
 import logging
+from app.utils.logger import setup_logger
 import time
 from urllib.parse import unquote
+from app.services.sql_generator import SQLGenerator
 
-logger = logging.getLogger(__name__)
+
+logger = setup_logger(__name__)
 
 class QAService:
     def __init__(self):
-        # Get services from container
-        container = ServiceContainer.get_instance()
-        self.llm_service = container.llm_service
-        self.db_service = container.db_service
-        self.url_service = container.url_service
-        self.index_service = container.index_service
-        self.lang_service = container.lang_service
-        self.cache_service = container.cache_service
-        self.sql_generator = container.sql_generator
-        if not self.sql_generator:
-            raise RuntimeError("Services not initialized. Call initialize() first")
+        self.llm_service = None
+        self.index_service = None
+        self.url_service = None
+        self.cache_service = None
+        self.lang_service = None
+
+    def initialize(self, llm_service, index_service, url_service, cache_service, lang_service):
+        """Initialize with required services"""
+        self.llm_service = llm_service
+        self.index_service = index_service
+        self.url_service = url_service
+        self.cache_service = cache_service
+        self.lang_service = lang_service
 
     async def get_answer(
         self, 
-        query: str, 
-        model_type: str,
-        enable_doc_search: bool = True
+        question: str, 
+        model_type: str = None,
+        include_docs: bool = True
     ) -> Dict[str, Any]:
-        """Process question and return answer with context"""
+        """Get answer for the question"""
         try:
             start_time = time.time()
-            # Double decode to handle URLs in the query
-            decoded_query = unquote(unquote(query))
+            logger.info(f"Processing question: '{question}' with model: {model_type}")
             
-            # Switch model if requested
-            if model_type:
-                await self.llm_service.switch_provider(model_type)
+            # 1. Handle URLs in question
+            url_contents = []
+            if self.url_service:
+                urls = await self.url_service.extract_urls(question)
+                if urls:
+                    logger.info(f"Found URLs in question: {urls}")
+                for url in urls:
+                    content = await self.url_service.fetch_url_content(url)
+                    if content:
+                        logger.info(f"Successfully fetched content from {url}")
+                        url_contents.append(content)
+                    else:
+                        logger.warning(f"Failed to fetch content from {url}")
             
-            # Handle URLs in query
-            url_data = await self.url_service.extract_and_process_urls(decoded_query)
-            
-            # Check if question requires database access
+            # 2. Check if question needs DB access
             db_data = None
-            if await self.llm_service.is_db_question(decoded_query):
-                db_data = await self._get_db_data(decoded_query)
+            if self.llm_service:
+                needs_db = await self.llm_service.is_db_question(question)
+                logger.info(f"Question requires DB access: {needs_db}")
+                if needs_db:
+                    db_data = await self._get_db_data(question)
+                    if db_data:
+                        logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
             
-            # Get relevant documents only if enabled
-            doc_data = None
-            if enable_doc_search:
-                doc_data = await self.index_service.query_index(decoded_query)
-            
-            # Format context text with documents, URLs, and DB data
-            context_text = await self._build_context(doc_data, url_data, db_data)
-            
-            # Format prompt based on language
-            prompt = self.lang_service.format_prompt(decoded_query, context_text)
-            
-            # Generate answer using specified model
-            answer = await self.llm_service.generate_answer(prompt)
-            
-            # Translate response if necessary
-            if lang_info["language"] != "english":
-                answer = await self.lang_service.translate_to_language(
-                    answer, 
-                    lang_info["language"]
+            # 3. Get document context if enabled
+            context = ""
+            source_nodes = []
+            if include_docs:
+                logger.info("Searching document context...")
+                query_response = await self.index_service.query(question)
+                source_nodes = query_response.source_nodes
+                logger.info(f"Found {len(source_nodes)} relevant document nodes")
+                context += "\n\nDocument Context:\n" + "\n".join(
+                    [node.text for node in source_nodes]
                 )
+            
+            # 4. Combine all context sources
+            if url_contents:
+                context += "\n\nURL Context:\n" + "\n".join(url_contents)
+            if db_data:
+                context += f"\n\nDatabase Results:\n{db_data['results']}"
+                if db_data.get('sql_query'):
+                    context += f"\nSQL Query Used: {db_data['sql_query']}"
+            
+            # 5. Format prompt with all context
+            logger.info("Preparing prompt according question language...")
+            prompt = self.lang_service.format_prompt(
+                question=question,
+                context=context
+            )
+            
+            logger.info(f"Generated prompt (length: {len(prompt)} chars)")
+            logger.debug(f"Full prompt: {prompt}")
+            
+            answer = await self.llm_service.generate_answer(prompt)
+            logger.info(f"Generated answer (length: {len(answer)} chars)")
+            logger.debug(f"Full answer: {answer}")
+            
+            time_taken = round(time.time() - start_time, 2)
+            logger.info(f"Request completed in {time_taken}s")
             
             return {
                 "answer": answer,
-                "context": doc_data,
-                "db_data": db_data,
-                "time_taken": round(time.time() - start_time, 2)
+                "context": {
+                    "source_nodes": [
+                        {"filename": node.filename, "text": node.text}
+                        for node in source_nodes
+                    ],
+                    "time_taken": time_taken
+                }
             }
         except Exception as e:
-            logger.error(f"Error processing query '{query}': {str(e)}")
+            logger.exception(f"Error processing query '{question}': {str(e)}")
             raise
 
     async def _get_db_data(self, question: str) -> Optional[Dict[str, Any]]:
         """Get data from database if question requires it"""
         try:
+            from app.core.service_container import ServiceContainer
+            container = ServiceContainer.get_instance()
+            
             # Use SQLGenerator for query generation
-            sql_query = await self.sql_generator.generate_query(question=question)
-            results = await self.db_service.execute_query(sql_query)
+            schema = await container.db_service.get_schema()
+            sql_generator = SQLGenerator(
+                schema=schema,
+                llm_service=container.llm_service
+            )
+            await sql_generator.initialize()
+            
+            sql_query = await sql_generator.generate_query(question=question)
+            logger.info(f"Generated SQL query: {sql_query}")
+            db_service = container.db_service
+            results = await db_service.execute_query(sql_query)
+            logger.info(f"Results: {results}")
             return {
                 "sql_query": sql_query,
                 "results": results

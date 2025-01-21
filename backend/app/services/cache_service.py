@@ -3,8 +3,9 @@ import json
 from typing import Optional, Any
 from redis.asyncio import Redis
 from app.core.config import settings
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class CacheService:
     def __init__(self):

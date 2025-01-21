@@ -1,10 +1,11 @@
 from app.core.config import settings
 from app.llm.local_llm import LocalLLM
 from app.llm.openai_llm import OpenAILLM
+from app.utils.logger import setup_logger
 from fastapi import HTTPException
-import logging
 
-logger = logging.getLogger(__name__)
+
+logger = setup_logger(__name__)
 
 async def create_llm(model_type: str = None):
     """Create LLM instance based on configuration."""
@@ -17,7 +18,7 @@ async def create_llm(model_type: str = None):
             if not settings.OPENAI_API_KEY:
                 raise ValueError("OpenAI API key is not configured")
             return OpenAILLM()
-        return LocalLLM(model_path=settings.llm_model_path)
+        return LocalLLM(model_path=settings.LLM_MODEL_PATH)
     except Exception as e:
         logger.error(f"Error creating LLM: {str(e)}")
         raise HTTPException(

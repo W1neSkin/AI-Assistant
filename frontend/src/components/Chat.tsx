@@ -1,7 +1,9 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import ModelToggle from './ModelToggle';
+import DocumentSearchToggle from './DocumentSearchToggle';
 import styles from './Chat.module.css';
 import { API_BASE_URL } from '../config';
+import { useSearchParams } from 'react-router-dom';
 
 interface Message {
     type: 'question' | 'answer';
@@ -68,6 +70,9 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [isLocalModel, setIsLocalModel] = useState<boolean>(true);
     const [availableModels, setAvailableModels] = useState<string[]>([]);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const enableDocSearch = searchParams.get('docSearch') !== 'false';
+    const [enableDocSearchState, setEnableDocSearchState] = useState<boolean>(true);
 
     useEffect(() => {
         // Fetch available models on component mount
@@ -118,7 +123,8 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
             const encodedQuery = encodeURIComponent(encodeURIComponent(question));
             const response = await fetch(`${API_BASE_URL}/question/${encodedQuery}`, {
                 headers: {
-                    'X-Model-Type': isLocalModel ? 'local' : 'openai'
+                    'X-Model-Type': isLocalModel ? 'local' : 'openai',
+                    'X-Enable-Doc-Search': enableDocSearchState.toString()
                 }
             });
             if (!response.ok) {
@@ -144,6 +150,11 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleDocSearchToggle = (enabled: boolean) => {
+        setSearchParams({ docSearch: enabled.toString() });
+        setEnableDocSearchState(enabled);
     };
 
     return (
@@ -182,12 +193,19 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                         placeholder="Type your question and press Enter to send (Shift+Enter for new line)"
                         className={styles.input}
                     />
-                    <ModelToggle
-                        isLocal={isLocalModel}
-                        onToggle={setIsLocalModel}
-                        disabled={loading}
-                        models={availableModels}
-                    />
+                    <div className={styles.controls}>
+                        <ModelToggle
+                            isLocal={isLocalModel}
+                            onToggle={setIsLocalModel}
+                            disabled={loading}
+                            models={availableModels}
+                        />
+                        <DocumentSearchToggle 
+                            enableDocSearch={enableDocSearchState}
+                            onToggle={handleDocSearchToggle}
+                            disabled={loading}
+                        />
+                    </div>
                     <div className={styles.buttonGroup}>
                         <button 
                             onClick={onManageDocuments}
