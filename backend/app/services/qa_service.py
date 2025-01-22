@@ -30,7 +30,7 @@ class QAService:
         model_type: str = None,
         include_docs: bool = True
     ) -> Dict[str, Any]:
-        """Get answer for the question"""
+        """Get answer for the question"""    
         try:
             start_time = time.time()
             logger.info(f"Processing question: '{question}' with model: {model_type}")
@@ -96,19 +96,33 @@ class QAService:
             time_taken = round(time.time() - start_time, 2)
             logger.info(f"Request completed in {time_taken}s")
             
-            return {
-                "answer": answer,
+            # Ensure we're returning a properly structured response
+            response = {
+                "answer": str(answer),  # Ensure answer is a string
                 "context": {
                     "source_nodes": [
-                        {"filename": node.filename, "text": node.text}
-                        for node in source_nodes
+                        {
+                            "filename": str(node.filename),  # Ensure filename is a string
+                            "text": str(node.text)  # Ensure text is a string
+                        }
+                        for node in (source_nodes or [])  # Handle empty source_nodes
                     ],
-                    "time_taken": time_taken
+                    "time_taken": float(time_taken)  # Ensure time_taken is a number
                 }
             }
+            
+            logger.debug(f"Returning response: {response}")
+            return response
         except Exception as e:
             logger.exception(f"Error processing query '{question}': {str(e)}")
-            raise
+            # Return a properly structured error response
+            return {
+                "answer": f"Error: {str(e)}",
+                "context": {
+                    "source_nodes": [],
+                    "time_taken": 0
+                }
+            }
 
     async def _get_db_data(self, question: str) -> Optional[Dict[str, Any]]:
         """Get data from database if question requires it"""

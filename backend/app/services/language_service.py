@@ -15,18 +15,41 @@ class LanguageService:
 
     def format_prompt(self, question: str, context: str) -> str:
         """Format prompt based on language."""
+        # Extract different parts of context
+        context_parts = []
+        
+        # Split context into sections if they exist
+        sections = context.split('\n\n')
+        for section in sections:
+            if section.startswith('Document Context:'):
+                context_parts.append(section)
+            elif section.startswith('Database Results:'):
+                # Format database results more clearly
+                db_lines = section.split('\n')
+                if len(db_lines) > 1:
+                    results = db_lines[1:]  # Skip the "Database Results:" header
+                    context_parts.append(
+                        "Database Results:\n" + 
+                        "- " + "\n- ".join(results)
+                    )
+            elif section.strip():
+                context_parts.append(section)
+        
+        # Combine all context parts
+        formatted_context = '\n\n'.join(context_parts)
+        
         if self.is_russian(question):
             return (
                 "<s>[INST] Ты русскоязычный ассистент. "
                 "Твоя задача - отвечать ТОЛЬКО на русском языке. "
                 "Используй ТОЛЬКО информацию из предоставленного контекста. "
                 f"Вопрос: {question}\n\n"
-                f"Контекст: {context} [/INST]</s>"
+                f"Контекст: {formatted_context} [/INST]</s>"
             )
         else:
             return (
                 "<s>[INST] You are a helpful assistant. "
                 "Please provide a detailed answer based on the given context. "
                 f"Question: {question}\n\n"
-                f"Context: {context} [/INST]</s>"
+                f"Context: {formatted_context} [/INST]</s>"
             ) 

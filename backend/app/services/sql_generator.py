@@ -165,11 +165,6 @@ class SQLGenerator:
             if cached_query:
                 return cached_query
 
-            # Log schema size
-            logger.debug(f"Schema size (chars): {len(self.schema)}")
-            logger.debug(f"Schema: {self.schema}")
-
-            # Generate SQL query
             prompt = f"""
             Given the following database schema:
             {self.schema}
@@ -177,25 +172,32 @@ class SQLGenerator:
             Generate a SQL query for this question:
             {question}
             
-            Rules: Use proper PostgreSQL syntax, only schema tables/columns, 
-            single quotes for strings, LIMIT 1000, handle NULLs with COALESCE.
+            Rules:
+            - Use proper PostgreSQL syntax
+            - Only use schema tables/columns
+            - Use single quotes for strings
+            - Add LIMIT 1000
+            - Handle NULLs with COALESCE
+            - Return ONLY the SQL query, no explanations or notes
             
             SQL Query:
             """
             
-            # Log prompt details
-            logger.debug(f"Question: {question}")
-            logger.debug(f"Total prompt size (chars): {len(prompt)}")
-            logger.debug(f"Prompt: {prompt}")
-
             response = await self.llm_service.generate_answer(prompt)
             sql_query = response["answer"] if isinstance(response, dict) else response
-            logger.info(f"Generated SQL query: {sql_query}")
+            
+            # Extract only the SQL query, removing any comments or notes
+            sql_lines = sql_query.strip().split('\n')
+            cleaned_sql = '\n'.join(
+                line for line in sql_lines 
+                if not line.strip().startswith('--') 
+                and not line.lower().startswith('note:')
+            ).strip()
             
             # Cache the result
-            await self.cache.set(cache_key, sql_query)
+            await self.cache.set(cache_key, cleaned_sql)
             
-            return sql_query
+            return cleaned_sql
 
         except Exception as e:
             logger.error(f"Error generating SQL query for question '{question}': {str(e)}")

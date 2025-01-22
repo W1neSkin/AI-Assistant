@@ -1,4 +1,4 @@
-import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import React, { useState, useRef, KeyboardEvent, useEffect, Component } from 'react';
 import ModelToggle from './ModelToggle';
 import DocumentSearchToggle from './DocumentSearchToggle';
 import styles from './Chat.module.css';
@@ -35,8 +35,8 @@ interface ApiResponse {
             filename: string;
             text: string;
         }>;
+        time_taken: number;
     };
-    time_taken: number;
 }
 
 interface ModelInfo {
@@ -61,6 +61,35 @@ const formatSources = (context: ChatMessage['context']) => {
     
     return result;
 };
+
+// Error boundary component
+class ErrorBoundary extends Component<{children: React.ReactNode}, {hasError: boolean}> {
+    constructor(props: {children: React.ReactNode}) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError(_: Error) {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error('Chat component error:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className={styles.errorContainer}>
+                    <h2>Something went wrong.</h2>
+                    <button onClick={() => window.location.reload()}>Refresh Page</button>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
 
 const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -133,20 +162,25 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
             }
             const data: ApiResponse = await response.json();
 
+            // Add type checking and default values
+            const answer = data?.answer || 'No answer available';
+            const sources = data?.context?.source_nodes?.map(node => node.filename) || [];
+            const timeTaken = data?.context?.time_taken || 0;
+
             setMessages(prev => [...prev, {
                 type: 'answer',
-                text: data.answer || 'No answer available',
-                sources: [...new Set(data.context.source_nodes.map(node => node.filename))],
-                time_taken: data.time_taken
+                text: answer,
+                sources: [...new Set(sources)],
+                time_taken: timeTaken
             }]);
         } catch (error) {
+            console.error('Error in handleSubmit:', error);
             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
             setMessages(prev => [...prev, {
                 type: 'answer',
                 text: `Error: ${errorMessage}`,
                 sources: []
             }]);
-            console.error('Error in handleSubmit:', error);
         } finally {
             setLoading(false);
         }
@@ -229,4 +263,10 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     );
 };
 
-export default Chat; 
+export default function ChatWithErrorBoundary(props: ChatProps) {
+    return (
+        <ErrorBoundary>
+            <Chat {...props} />
+        </ErrorBoundary>
+    );
+} 
