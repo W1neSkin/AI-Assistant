@@ -64,12 +64,17 @@ class QAService:
             source_nodes = []
             if include_docs:
                 logger.info("Searching document context...")
-                query_response = await self.index_service.query(question)
-                source_nodes = query_response.source_nodes
+                query_bundle, search_results = await self.index_service.query(question)
+                source_nodes = search_results
                 logger.info(f"Found {len(source_nodes)} relevant document nodes")
-                context += "\n\nDocument Context:\n" + "\n".join(
-                    [node.text for node in source_nodes]
-                )
+                if source_nodes:
+                    context += "\n\nDocument Context:\n"
+                    for node in source_nodes:
+                        if node['text'].strip():  # Only add non-empty text
+                            context += f"\nFrom {node['filename']}:\n{node['text']}\n"
+                            context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
+                else:
+                    context += "\n\nNo relevant documents found."
             
             # 4. Combine all context sources
             if url_contents:
@@ -90,24 +95,26 @@ class QAService:
             logger.debug(f"Full prompt: {prompt}")
             
             answer = await self.llm_service.generate_answer(prompt)
-            logger.info(f"Generated answer (length: {len(answer)} chars)")
-            logger.debug(f"Full answer: {answer}")
+            # Extract just the answer text, not the whole response dict
+            answer_text = answer.get('answer') if isinstance(answer, dict) else answer
+            logger.info(f"Generated answer (length: {len(answer_text)} chars)")
+            logger.debug(f"Full answer: {answer_text}")
             
             time_taken = round(time.time() - start_time, 2)
             logger.info(f"Request completed in {time_taken}s")
             
-            # Ensure we're returning a properly structured response
+            # Return properly structured response
             response = {
-                "answer": str(answer),  # Ensure answer is a string
+                "answer": str(answer_text),  # Use the extracted answer text
                 "context": {
                     "source_nodes": [
                         {
-                            "filename": str(node.filename),  # Ensure filename is a string
-                            "text": str(node.text)  # Ensure text is a string
+                            "filename": str(node['filename']),
+                            "text": str(node['text'])
                         }
-                        for node in (source_nodes or [])  # Handle empty source_nodes
+                        for node in (source_nodes or [])
                     ],
-                    "time_taken": float(time_taken)  # Ensure time_taken is a number
+                    "time_taken": float(time_taken)
                 }
             }
             

@@ -3,6 +3,9 @@ from llama_index.vector_stores.elasticsearch import ElasticsearchStore
 from app.core.config import settings
 from app.utils.logger import setup_logger
 import os
+import json
+
+logger = setup_logger(__name__)
 
 async def get_es_client():
     return AsyncElasticsearch(
@@ -18,33 +21,33 @@ async def create_vector_store():
     # Create index if it doesn't exist
     index_name = "documents"
     exists = await es_client.indices.exists(index=index_name)
+    
     if not exists:
+        logger.info("Creating new Elasticsearch index with vector mapping")
         index_settings = {
-            "settings": {
-                "index": {
-                    "number_of_shards": 1,
-                    "number_of_replicas": 0,
-                    "refresh_interval": "1s"
-                }
-            },
             "mappings": {
                 "properties": {
                     "metadata": {
                         "properties": {
-                            "filename": {
-                                "type": "text",
-                                "fields": {
-                                    "keyword": {
-                                        "type": "keyword"
-                                    }
-                                }
-                            },
-                            "active": {"type": "boolean"},
+                            "filename": {"type": "keyword"},
                             "doc_id": {"type": "keyword"},
-                            "created_at": {"type": "date"}
+                            "active": {"type": "boolean"}
                         }
                     },
-                    "text": {"type": "text"},
+                    "text": {
+                        "type": "text",
+                        "analyzer": "standard",
+                        "fields": {
+                            "_2gram": {
+                                "type": "text",
+                                "analyzer": "custom_2gram"
+                            },
+                            "_3gram": {
+                                "type": "text",
+                                "analyzer": "custom_3gram"
+                            }
+                        }
+                    },
                     "vector": {
                         "type": "dense_vector",
                         "dims": 384,
@@ -52,9 +55,48 @@ async def create_vector_store():
                         "similarity": "cosine"
                     }
                 }
+            },
+            "settings": {
+                "analysis": {
+                    "analyzer": {
+                        "custom_2gram": {
+                            "type": "custom",
+                            "tokenizer": "standard",
+                            "filter": ["lowercase", "shingle_2gram"]
+                        },
+                        "custom_3gram": {
+                            "type": "custom",
+                            "tokenizer": "standard",
+                            "filter": ["lowercase", "shingle_3gram"]
+                        }
+                    },
+                    "filter": {
+                        "shingle_2gram": {
+                            "type": "shingle",
+                            "min_shingle_size": 2,
+                            "max_shingle_size": 2
+                        },
+                        "shingle_3gram": {
+                            "type": "shingle",
+                            "min_shingle_size": 3,
+                            "max_shingle_size": 3
+                        }
+                    }
+                }
             }
         }
         await es_client.indices.create(index=index_name, body=index_settings)
+        logger.info("Index created successfully")
+    
+    # Debug: Check existing documents
+    response = await es_client.search(
+        index=index_name,
+        body={
+            "query": {"match_all": {}},
+            "size": 1
+        }
+    )
+    logger.info(f"Total documents in index: {response['hits']['total']['value']}")
     
     return ElasticsearchStore(
         es_client=es_client,

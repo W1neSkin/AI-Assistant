@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import documents_router, qa_router, health_router
 from app.core.config import settings
 from app.services.index_service import LlamaIndexService
-from app.services.local_llm import LocalLLM
+from app.llm.local_llm import LocalLLM
 
 app = FastAPI(title="Document Q&A Bot")
 

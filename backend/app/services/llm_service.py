@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, Literal
 from app.llm.factory import create_llm
+from app.llm.openai_llm import OpenAILLM
+from app.llm.local_llm import LocalLLM
 from app.core.config import settings
 from app.utils.logger import setup_logger
 
@@ -95,20 +97,31 @@ class LLMService:
             logger.error(f"Error generating SQL: {str(e)}")
             raise
 
-    async def generate_answer(self, prompt: str) -> Dict[str, Any]:
+    async def generate_answer(self, prompt: str) -> str:
         """Generate answer using current model"""
         try:
-            # 1. Get current model (local or OpenAI)
+            # Initialize if needed
+            if not self._local_llm:
+                self._local_llm = await create_llm()
+
+            # Get current model
             model = self._get_current_model()
             
-            # 2. Generate answer using model
-            response = await model.generate_answer(prompt)
+            # Increase max tokens for response
+            max_tokens = 4096  # Increased from default
             
-            # 3. Return formatted response
-            return {
-                "answer": response.strip(),
-                "model": self.current_provider
-            }
+            # Generate answer
+            if isinstance(model, OpenAILLM):
+                response = await model.generate_answer(prompt)
+            else:
+                # For local LLM, use increased context and response length
+                response = await model.generate_answer(
+                    prompt,
+                    max_tokens=max_tokens,
+                    context_window=4096
+                )
+
+            return response
         except Exception as e:
             logger.error(f"Error generating answer: {str(e)}")
             raise

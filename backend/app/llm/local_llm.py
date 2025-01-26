@@ -1,5 +1,6 @@
 from llama_cpp import Llama
 from app.utils.logger import setup_logger
+from app.core.config import settings
 
 logger = setup_logger(__name__)
 
@@ -14,7 +15,7 @@ class LocalLLM:
             logger.info(f"Initializing local LLM with model: {self.model_path}")
             self.model = Llama(
                 model_path=self.model_path,
-                n_ctx=2048,  # Context window
+                n_ctx=4096,  # Context window
                 n_threads=4,  # CPU threads
                 verbose=False
             )
@@ -23,7 +24,12 @@ class LocalLLM:
             logger.error(f"Failed to initialize local LLM: {str(e)}")
             raise
 
-    async def generate_answer(self, prompt: str) -> str:
+    async def generate_answer(
+        self, 
+        prompt: str, 
+        max_tokens: int = 4096,
+        context_window: int = 4096
+    ) -> str:
         """Generate answer using local LLM"""
         try:
             # 1. Initialize model if needed
@@ -33,10 +39,10 @@ class LocalLLM:
             # 2. Generate completion
             response = self.model.create_completion(
                 prompt=prompt,
-                max_tokens=512,
-                top_k=40,
-                top_p=0.95,
-                repeat_penalty=1.1
+                max_tokens=max_tokens,
+                stop=["</s>"],  # Stop at end of sequence token
+                echo=False,      # Don't include prompt in response
+                temperature=settings.TEMPERATURE,
             )
             
             # 3. Return cleaned response
