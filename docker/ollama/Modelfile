@@ -1,0 +1,17 @@
+FROM deepseek-r1:7b
+
+# GPU Configuration
+PARAMETER num_gpu_layers 35      # Load this many layers into GPU memory
+PARAMETER gpu_memory_utilization 0.8  # Use 80% of available VRAM
+
+# Model Parameters
+PARAMETER num_ctx 4096          # Context window size
+PARAMETER num_thread 4          # CPU threads for non-GPU operations
+PARAMETER num_batch 512         # Batch size for prompt processing
+PARAMETER temperature 0.7       # Lower for more focused responses
+PARAMETER top_p 0.9            # Nucleus sampling parameter
+PARAMETER repeat_penalty 1.1    # Penalty for repeated tokens
+
+# Memory Configuration
+PARAMETER rope_frequency_base 10000    # RoPE frequency base
+PARAMETER rope_frequency_scale 1.0     # RoPE frequency scaling 

@@ -1,26 +1,35 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.1
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
+    container_name: weaviate
+    restart: on-failure:0
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - "logger.level=ERROR"
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      CLUSTER_HOSTNAME: 'node1'
+      PERSISTENCE_LSM_ACCESS_STRATEGY: "roaring"
+      DISK_USE_READONLY_PERCENTAGE: "95"
+      GRPC_PORT: "50051"
     ports:
-      - "9200:9200"
+      - "8080:8080"
+      - "50051:50051"
     volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
+      - weaviate_data:/var/lib/weaviate
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
-      interval: 30s
+      test: ["CMD", "wget", "--spider", "-q", "http://weaviate:8080/v1/.well-known/ready"]
+      interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
           memory: 1g
+        reservations:
+          memory: 100m
     networks:
       - app-network
 
@@ -29,21 +38,20 @@ services:
       context: ./backend
     ports:
       - "8000:8000"
+    container_name: backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
     depends_on:
-      elasticsearch:
+      weaviate:
         condition: service_healthy
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
     environment:
-      - ES_HOST=elasticsearch
-      - ES_PORT=9200
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -78,6 +86,7 @@ services:
     image: docker.io/library/redis:7-alpine
     ports:
       - "6379:6379"
+    container_name: redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -92,6 +101,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dbuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbpass}
@@ -110,10 +120,64 @@ services:
     networks:
       - app-network
 
+  ollama:
+    build: ./docker/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - app-network
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          cpus: '2.0'
+          memory: 16G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          cpus: '4.0'
+          memory: 18G
+    mem_limit: 18g
+    mem_reservation: 16g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  # Add initialization container
+  ollama-init:
+    image: curlimages/curl:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    command: >
+      sh -c "
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\":\"deepseek-r1:7b\"}' &&
+        curl -X POST http://ollama:11434/api/create -d '{
+          \"name\": \"optimized-deepseek-r1:7b\",
+          \"path\": \"/tmp/Modelfile\"
+        }'
+      "
+    volumes:
+      - ./docker/ollama/Modelfile:/tmp/Modelfile:ro
+    networks:
+      - app-network
+
 volumes:
-  elasticsearch-data:
+  weaviate_data:
   postgres_data:
+  ollama_data:
 
 networks:
   app-network:
-    driver: bridge 
+    driver: bridge

@@ -1,54 +1,35 @@
 from llama_cpp import Llama
 from app.utils.logger import setup_logger
 from app.core.config import settings
+import requests
+from typing import Optional
 
 logger = setup_logger(__name__)
 
 class LocalLLM:
-    def __init__(self, model_path: str):
-        self.model_path = model_path
-        self.model = None
+    def __init__(self, base_url: str = "http://ollama:11434"):
+        self.base_url = base_url
+        self.model_name = "deepseek-r1:7b"
     
-    async def initialize(self):
-        """Initialize the local LLM model"""
+    async def generate_answer(self, prompt: str, max_tokens: int = 4096) -> str:
         try:
-            logger.info(f"Initializing local LLM with model: {self.model_path}")
-            self.model = Llama(
-                model_path=self.model_path,
-                n_ctx=4096,  # Context window
-                n_threads=4,  # CPU threads
-                verbose=False
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model_name,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.7,
+                        "max_tokens": max_tokens,
+                        "num_gpu": 1  # Utilize GPU
+                    }
+                }
             )
-            logger.info("Local LLM initialized successfully")
+            response.raise_for_status()
+            return response.json()["response"]
         except Exception as e:
-            logger.error(f"Failed to initialize local LLM: {str(e)}")
-            raise
-
-    async def generate_answer(
-        self, 
-        prompt: str, 
-        max_tokens: int = 4096,
-        context_window: int = 4096
-    ) -> str:
-        """Generate answer using local LLM"""
-        try:
-            # 1. Initialize model if needed
-            if not self.model:
-                await self.initialize()
-
-            # 2. Generate completion
-            response = self.model.create_completion(
-                prompt=prompt,
-                max_tokens=max_tokens,
-                stop=["</s>"],  # Stop at end of sequence token
-                echo=False,      # Don't include prompt in response
-                temperature=settings.TEMPERATURE,
-            )
-            
-            # 3. Return cleaned response
-            return response['choices'][0]['text'].strip()
-        except Exception as e:
-            logger.error(f"Error generating answer: {str(e)}")
+            logger.error(f"Ollama API error: {str(e)}")
             raise
 
     def estimate_tokens(self, text: str) -> int:

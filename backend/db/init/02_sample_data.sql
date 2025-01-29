@@ -27,7 +27,6 @@ SELECT * FROM client_data;
 -- Insert addresses (90 unique addresses for 100 clients - 10% share addresses)
 WITH address_data AS (
     SELECT 
-        row_number() OVER () as address_id,
         (ARRAY['Main St', 'Oak Ave', 'Maple Rd', 'Cedar Ln', 'Pine St', 'Elm Dr', 'Park Ave', 'Lake St', 'River Rd', 'Hill St'])[floor(random()*10+1)] as street,
         floor(random()*1000+1)::int as house,
         (ARRAY['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'San Jose'])[floor(random()*10+1)] as city,
@@ -36,7 +35,14 @@ WITH address_data AS (
         random_date(CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year') as created_at
     FROM generate_series(1, 90) i
 )
-INSERT INTO addresses (address_id, street, house, city, zip, customer_id, created_at)
+INSERT INTO addresses (
+    street,
+    house,
+    city,
+    zip,
+    customer_id,
+    created_at
+)
 SELECT * FROM address_data;
 
 -- Assign shared addresses to remaining 10 clients

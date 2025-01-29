@@ -3,18 +3,20 @@ from llama_index.core import (
     Document,
     Settings,
 )
-from llama_index.core.node_parser import SimpleNodeParser
+from llama_index.core.node_parser import SimpleNodeParser, SentenceSplitter
 from llama_index.core.schema import QueryBundle
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.readers.file.docs import PDFReader, DocxReader
-from app.utils.es_client import create_vector_store
+from app.utils.weaviate_client import create_vector_store
 from app.utils.logger import setup_logger
+from app.utils.document_utils import extract_text_from_pdf, extract_text_from_docx
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import tempfile
 import os
 import backoff
 import json
+import time
 
 logger = setup_logger(__name__)
 
@@ -48,332 +50,234 @@ class LlamaIndexService:
 
     async def index_document(self, content: bytes, filename: str) -> None:
         try:
-            doc_id = str(uuid.uuid4())
-            logger.debug(f"Processing document: {filename}")
-            
-            # Function to chunk text
-            def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
-                sentences = text.split('. ')
-                chunks = []
-                current_chunk = []
-                current_size = 0
-                
-                for sentence in sentences:
-                    sentence = sentence.strip() + '. '
-                    if current_size + len(sentence) > chunk_size and current_chunk:
-                        chunks.append(''.join(current_chunk))
-                        current_chunk = [sentence]
-                        current_size = len(sentence)
-                    else:
-                        current_chunk.append(sentence)
-                        current_size += len(sentence)
-                
-                if current_chunk:
-                    chunks.append(''.join(current_chunk))
-                return chunks
-
             # Handle different file types
             if filename.lower().endswith('.pdf'):
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-                    temp_file.write(content)
-                    temp_path = temp_file.name
-                try:
-                    reader = PDFReader()
-                    documents = reader.load_data(temp_path)
-                    text = "\n".join(doc.text for doc in documents)
-                finally:
-                    # Clean up temp file
-                    os.unlink(temp_path)
+                text = extract_text_from_pdf(content)
             elif filename.lower().endswith('.docx'):
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
-                    temp_file.write(content)
-                    temp_path = temp_file.name
-                try:
-                    reader = DocxReader()
-                    documents = reader.load_data(temp_path)
-                    text = "\n".join(doc.text for doc in documents)
-                finally:
-                    os.unlink(temp_path)
+                text = extract_text_from_docx(content)
             else:
-                # Try different encodings for text files
-                encodings = ['utf-8', 'latin1', 'cp1252']
-                text = None
-                for encoding in encodings:
-                    try:
-                        text = content.decode(encoding)
-                        break
-                    except UnicodeDecodeError:
-                        continue
-                if text is None:
-                    raise ValueError(f"Could not decode file {filename} with any supported encoding")
-            
-            document = Document(
-                text=text,
-                metadata={
-                    'filename': filename,
-                    'doc_id': doc_id,
-                    'active': True
-                }
-            )
-            
-            logger.debug(f"Document content length: {len(text)}")
-            logger.debug(f"First 200 chars: {text[:200]}")
-            
-            # Split text into chunks and index each chunk
+                text = content.decode('utf-8')
+
+
+            # Proceed with indexing the extracted text
+            doc_id = str(uuid.uuid4())
             chunks = chunk_text(text)
-            for i, chunk in enumerate(chunks):
-                chunk_id = f"{doc_id}_{i}"
-                vector = self.embed_model.get_text_embedding(chunk)
-                await self.vector_store.client.index(
-                    index="documents",
-                    id=chunk_id,
-                    body={
+            
+            # Configure batch with retry logic
+            self.vector_store.client.batch.configure(
+                batch_size=50,  # Optimal for most setups
+                dynamic=True,
+                timeout_retries=3,
+                callback=handle_batch_errors
+            )
+
+            with self.vector_store.client.batch as batch:
+                for i, chunk in enumerate(chunks):
+                    vector = self.embed_model.get_text_embedding(chunk)
+                    data_object = {
                         "text": chunk,
-                        "vector": vector,
-                        "metadata": {
-                            'filename': filename,
-                            'doc_id': doc_id,
-                            'chunk_id': i,
-                            'active': True
-                        }
+                        "filename": filename,
+                        "doc_id": doc_id,
+                        "chunk_id": i,
+                        "active": True
                     }
-                )
+                    batch.add_data_object(
+                        data_object=data_object,
+                        class_name="Documents",
+                        vector=vector
+                    )
+                    # Add pause every 100 chunks
+                    if i % 100 == 0:
+                        time.sleep(0.1)
             
-            # Force refresh to make document immediately available
-            await self.vector_store.client.indices.refresh(index="documents")
-            
-            logger.info(f"Document indexed successfully: {filename}")
+            logger.info(f"Indexed {len(chunks)} chunks for {filename}")
         except Exception as e:
             logger.error(f"Error indexing document: {str(e)}")
             raise
 
     async def query_index(self, query: str, max_results: int = 3) -> Dict[str, Any]:
         try:
-            retriever = self.index.as_retriever(similarity_top_k=max_results)
-            nodes = retriever.retrieve(query)
-            
-            return {
-                "source_nodes": [
-                    {
-                        "text": node.text,
-                        "score": node.score if hasattr(node, 'score') else None,
-                        "filename": node.metadata.get('filename', 'Unknown') if node.metadata else 'Unknown'
-                    }
-                    for node in nodes
-                ]
-            }
+            # Get query embedding
+            query_embedding = self.embed_model.get_text_embedding(query)
+
+            # Search in Weaviate with vector
+            result = (
+                self.vector_store.client.collections.get("Documents")
+                .with_near_vector({
+                    "vector": query_embedding
+                })
+                .with_limit(max_results)
+                .with_additional(["score"])  # Fetch additional metadata
+                .do()  # Use do() to execute the query
+            )
+
+            # Process results
+            results = []
+            for item in result.get("data", {}).get("Get", {}).get("Documents", []):
+                results.append({
+                    "text": item.get("text", ""),
+                    "filename": item.get("metadata", {}).get("filename", "unknown"),
+                    "similarity_score": item.get("_additional", {}).get("score", 0),
+                    "doc_id": item.get("metadata", {}).get("doc_id")
+                })
+
+            logger.info(f"Found {len(results)} relevant documents for query '{query}'")
+            return results
+
         except Exception as e:
-            logger.error(f"Error querying index: {str(e)}")
+            logger.error(f"Error performing semantic search for query '{query}': {str(e)}")
             raise
 
-    async def clear_all_data(self) -> None:
-        try:
-            await self.vector_store.delete(delete_all=True)
-            logger.info("All data cleared successfully")
-        except Exception as e:
-            logger.error(f"Error clearing data: {str(e)}")
-            raise
-
+    
     async def get_documents(self) -> List[Dict[str, Any]]:
+        """Get list of all documents with their status"""
         try:
-            # Refresh index to ensure we get latest data
-            await self.vector_store.client.indices.refresh(index="documents")
+            if not self.vector_store:
+                await self.initialize()
             
-            response = await self.vector_store.client.search(
-                index="documents",
-                body={
-                    "query": {"match_all": {}},
-                    "size": 1000,
-                    "track_total_hits": True,
-                    "sort": [{"metadata.filename.keyword": {"order": "asc"}}],
-                    "_source": ["metadata"]
-                }
+            # Query all unique documents from Weaviate
+            result = (
+                self.vector_store.client.collections.get("Documents")
+                .do()  # Use do() to execute the query
             )
             
-            logger.info(f"Found {response['hits']['total']['value']} total documents")
-            
+            # Group by doc_id to get unique documents
             documents = {}
-            for hit in response["hits"]["hits"]:
-                metadata = hit["_source"]["metadata"]
+            for item in result.get("data", {}).get("Get", {}).get("Documents", []):
+                metadata = item.get("metadata", {})
                 doc_id = metadata.get("doc_id")
                 
-                if doc_id not in documents:
+                if doc_id and doc_id not in documents:
                     documents[doc_id] = {
                         "id": doc_id,
                         "filename": metadata.get("filename"),
                         "active": metadata.get("active", True)
                     }
             
-            logger.debug(f"Returning {len(documents)} unique documents")
+            logger.info(f"Found {len(documents)} documents")
             return list(documents.values())
         except Exception as e:
             logger.error(f"Error fetching documents: {str(e)}")
             raise
 
     async def delete_document(self, doc_id: str) -> None:
+        """Delete a specific document and all its chunks"""
         try:
-            logger.info(f"Attempting to delete document with ID: {doc_id}")
+            if not self.vector_store:
+                await self.initialize()
             
-            # Delete from Elasticsearch index
-            await self.vector_store.client.delete_by_query(
-                index="documents",
-                body={
-                    "query": {
-                        "term": {
-                            "metadata.doc_id": doc_id
-                        }
-                    }
+            # Delete all objects with matching doc_id
+            result = self.vector_store.client.collections.delete(
+                name="Documents",
+                where={
+                    "path": ["metadata", "doc_id"],
+                    "operator": "Equal",
+                    "valueString": doc_id
                 }
             )
             
-            # Force refresh to make the deletion visible immediately
-            await self.vector_store.client.indices.refresh(index="documents")
-            
-            # Verify deletion
-            result = await self.vector_store.client.search(
-                index="documents",
-                body={
-                    "query": {
-                        "term": {
-                            "metadata.doc_id": doc_id
-                        }
-                    }
-                }
-            )
-            
-            if result["hits"]["total"]["value"] > 0:
-                raise Exception("Document still exists after deletion")
-            
-            logger.info(f"Document deleted successfully: {doc_id}")
+            if result is True:
+                logger.info(f"Document deleted successfully: {doc_id}")
+            else:
+                logger.warning(f"Document deletion may have failed: {doc_id}")
+                
         except Exception as e:
             logger.error(f"Error deleting document {doc_id}: {str(e)}")
             raise
 
-    async def update_document_status(self, doc_id: str, active: bool) -> None:
+    async def clear_all_data(self) -> None:
+        """Delete all documents from the vector store"""
         try:
-            await self.vector_store.client.update_by_query(
-                index="documents",
-                body={
-                    "script": {
-                        "source": "ctx._source.metadata.active = params.active",
-                        "params": {"active": active}
-                    },
-                    "query": {
-                        "term": {
-                            "metadata.doc_id.keyword": doc_id
-                        }
+            if not self.vector_store:
+                await self.initialize()
+            
+            # Delete all objects in the Documents class
+            self.vector_store.client.schema.delete_class("Documents")
+            
+            # Recreate the schema
+            await create_vector_store()
+            
+            logger.info("All documents deleted successfully")
+        except Exception as e:
+            logger.error(f"Error clearing all documents: {str(e)}")
+            raise
+
+    async def update_document_status(self, doc_id: str, active: bool) -> None:
+        """Update the active status of a document"""
+        try:
+            if not self.vector_store:
+                await self.initialize()
+            
+            # Update all chunks of the document
+            result = self.vector_store.client.collections.update(
+                name="Documents",
+                where={
+                    "path": ["metadata", "doc_id"],
+                    "operator": "Equal",
+                    "valueString": doc_id
+                },
+                properties={
+                    "metadata": {
+                        "active": active
                     }
                 }
             )
-            logger.info(f"Document status updated successfully: {doc_id} -> {active}")
+            
+            if result is True:
+                logger.info(f"Document status updated successfully: {doc_id} -> {active}")
+            else:
+                logger.warning(f"Document status update may have failed: {doc_id}")
+                
         except Exception as e:
             logger.error(f"Error updating document status: {str(e)}")
             raise
 
     async def query(self, question: str, top_k: int = 5):
-        """
-        Query documents using semantic search
-        Args:
-            question: User's question text
-            top_k: Number of most relevant documents to retrieve
-        """
         try:
-            if not self.vector_store:
-                await self.initialize()
-            
             query_embedding = self.embed_model.get_text_embedding(question)
             
-            # First, get candidate documents using KNN
-            response = await self.vector_store.client.search(
-                index="documents",
-                body={
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "bool": {
-                                        "should": [
-                                            # Vector similarity
-                                            {
-                                                "script_score": {
-                                                    "query": {"match_all": {}},
-                                                    "script": {
-                                                        "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
-                                                        "params": {"query_vector": query_embedding}
-                                                    }
-                                                }
-                                            },
-                                            # Text matching
-                                            {
-                                                "multi_match": {
-                                                    "query": question,
-                                                    "fields": ["text^3", "text._2gram", "text._3gram"],
-                                                    "type": "most_fields",
-                                                    "operator": "or",
-                                                    "minimum_should_match": "30%"
-                                                }
-                                            }
-                                        ]
-                                    }
-                                }
-                            ],
-                            "filter": [
-                                {
-                                    "term": {
-                                        "metadata.active": True
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "min_score": 0.3,  # Filter out low-quality matches
-                    "_source": True,
-                    "size": top_k * 2  # Get more candidates initially
-                }
-            )
-            
-            # Process and format results
-            results = []
-            for hit in response["hits"]["hits"]:
-                source = hit["_source"]
-                text = source.get("text", source.get("node", {}).get("text", ""))
-                metadata = source.get("metadata", source.get("node", {}).get("metadata", {}))
-                
-                if not text.strip():
-                    continue
-                
-                # Calculate combined relevance score
-                vector_score = float(hit["_score"]) - 1.0  # Normalize cosine similarity to [0,1]
-                text_match_score = len(set(question.lower().split()) & set(text.lower().split())) / len(set(question.lower().split()))
-                combined_score = (vector_score * 0.7) + (text_match_score * 0.3)  # Weight vector similarity higher
-                
-                results.append({
-                    'text': text,
-                    'filename': metadata.get('filename', 'unknown'),
-                    'similarity_score': combined_score,
-                    'doc_id': metadata.get('doc_id')
+            result = (
+                self.vector_store.client.query
+                .get("Documents", ["text", "filename", "doc_id"])
+                .with_near_vector({
+                    "vector": query_embedding,
+                    "distance": 0.2  # More precise than certainty
                 })
-            
-            # Sort by combined score and take top_k
-            results.sort(key=lambda x: x['similarity_score'], reverse=True)
-            results = results[:top_k]
-            
-            logger.info(f"Found {len(results)} relevant documents for query: {question[:100]}...")
-            for result in results:
-                logger.debug(f"Document: {result['filename']}, Score: {result['similarity_score']}")
-                logger.debug(f"Text snippet: {result['text'][:200]}...")
-            
-            # Create query bundle with context
-            context_texts = [doc['text'] for doc in results if doc['text'].strip()]
-            query_bundle = QueryBundle(
-                query_str=question,
-                custom_embedding_strs=context_texts
+                .with_where({
+                    "path": ["active"],
+                    "operator": "Equal",
+                    "valueBoolean": True
+                })
+                .with_limit(top_k)
+                .with_additional(["distance"])
+                .do()
             )
             
-            return query_bundle, results
-            
+            # Add score normalization
+            max_distance = max([item["_additional"]["distance"] for item in result["data"]["Get"]["Documents"]], default=1)
+            return [{
+                **item,
+                "similarity_score": 1 - (item["_additional"]["distance"] / max_distance) if max_distance != 0 else 0
+            } for item in result["data"]["Get"]["Documents"]]
         except Exception as e:
             logger.error(f"Error performing semantic search: {str(e)}")
             raise 
+
+def chunk_text(text: str, chunk_size: int = 512, overlap: int = 64) -> List[str]:
+    """Split text into chunks with overlap using proper text splitting"""
+    splitter = SentenceSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+        separator=" ",
+        paragraph_separator="\n\n",
+        secondary_chunking_regex="[^,.;。]+[,.;。]?",
+    )
+    return [node.text for node in splitter.get_nodes_from_documents([Document(text=text)])] 
+
+def handle_batch_errors(results: Optional[list]) -> None:
+    if not results:
+        return
+    for result in results:
+        if "errors" in result:
+            logger.error(f"Batch error: {result['errors']}")
+            raise Exception("Batch operation failed") 

@@ -19,7 +19,7 @@ app.add_middleware(
 
 # Initialize services
 llama_service = LlamaIndexService()
-local_llm = LocalLLM(model_path="/app/storage/models/llm/mistral.gguf")
+local_llm = LocalLLM(base_url="http://ollama:11434")
 
 # Include routers
 app.include_router(health_router, tags=["health"])

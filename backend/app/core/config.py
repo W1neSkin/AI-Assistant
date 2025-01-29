@@ -18,8 +18,7 @@ class Settings(BaseSettings):
     DEFAULT_INCLUDE_DOCS: bool = Field(True, description="Include document search by default")
     
     # Vector Store Settings
-    ES_HOST: str = "elasticsearch"
-    ES_PORT: int = 9200
+    WEAVIATE_URL: str = "http://weaviate:8080"
     
     # File Settings
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
