@@ -1,9 +1,24 @@
-version: '3.9'
-
 services:
+  backend:
+    container_name: backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    volumes:
+      - ./backend:/app:cached
+    environment:
+      - PYTHONPATH=/app
+      - DEBUG_MODE=true
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+    networks:
+      - app-network
+
   weaviate:
-    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
     container_name: weaviate
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4    
     restart: on-failure:0
     environment:
       QUERY_DEFAULTS_LIMIT: 25
@@ -33,60 +48,27 @@ services:
     networks:
       - app-network
 
-  app:
-    build:
-      context: ./backend
-    ports:
-      - "8000:8000"
-    container_name: backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    depends_on:
-      weaviate:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-local}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
-      - TEMPERATURE=${TEMPERATURE:-0.7}
-      - DOCKER_BUILDKIT=1
-    env_file:
-      - .env
-    networks:
-      - app-network
-    volumes:
-      - ./backend:/app
-      - type: bind
-        source: ./backend/app/storage/models
-        target: /app/storage/models
-        consistency: cached
-
   frontend:
+    container_name: frontend
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8000
-    depends_on:
-      - app
     networks:
       - app-network
 
   redis:
+    container_name: redis
     image: docker.io/library/redis:7-alpine
     ports:
       - "6379:6379"
-    container_name: redis
+    
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -100,8 +82,8 @@ services:
       - app-network
 
   postgres:
-    image: postgres:16-alpine
     container_name: postgres
+    image: postgres:16-alpine    
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dbuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbpass}
@@ -121,32 +103,22 @@ services:
       - app-network
 
   ollama:
-    build: ./docker/ollama
     container_name: ollama
+    build: ./docker/ollama    
     ports:
       - "11434:11434"
     environment:
       - OLLAMA_HOST=0.0.0.0
-      - CUDA_VISIBLE_DEVICES=0
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME}
     volumes:
       - ollama_data:/root/.ollama
     networks:
       - app-network
-    runtime: nvidia
     deploy:
       resources:
-        reservations:
-          cpus: '2.0'
-          memory: 16G
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
         limits:
           cpus: '4.0'
           memory: 18G
-    mem_limit: 18g
-    mem_reservation: 16g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434"]
       interval: 30s
@@ -156,20 +128,18 @@ services:
 
   # Add initialization container
   ollama-init:
-    image: curlimages/curl:latest
+    container_name: ollama-init
+    image: curlimages/curl:latest    
     depends_on:
       ollama:
         condition: service_healthy
     command: >
-      sh -c "
-        curl -X POST http://ollama:11434/api/pull -d '{\"name\":\"deepseek-r1:7b\"}' &&
-        curl -X POST http://ollama:11434/api/create -d '{
-          \"name\": \"optimized-deepseek-r1:7b\",
-          \"path\": \"/tmp/Modelfile\"
-        }'
-      "
-    volumes:
-      - ./docker/ollama/Modelfile:/tmp/Modelfile:ro
+      sh -c '
+        curl -X POST http://ollama:11434/api/pull -d "{\"name\":\"${LLM_MODEL_NAME}\"}"
+      '
+    environment:
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME}
+      - OLLAMA_HOST=ollama:11434
     networks:
       - app-network
 

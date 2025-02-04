@@ -104,11 +104,33 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const [enableDocSearchState, setEnableDocSearchState] = useState<boolean>(true);
 
     useEffect(() => {
+        // Test backend connectivity
+        const testBackend = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                const data = await response.json();
+                console.log('Backend status:', data);
+            } catch (error) {
+                console.error('Backend connection error:', error);
+            }
+        };
+        testBackend();
+
         // Fetch available models on component mount
         const fetchModels = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/models`);
-                const data: ModelInfo = await response.json();
+                console.log('Fetching models from:', `${API_BASE_URL}/api/models`);
+                const response = await fetch(`${API_BASE_URL}/api/models`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Raw response:', data);
                 setAvailableModels(data.models);
                 setIsLocalModel(data.current === 'local');
             } catch (error) {

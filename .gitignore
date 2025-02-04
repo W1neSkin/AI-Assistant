@@ -53,9 +53,16 @@ elasticsearch-data/
 
 # Model storage
 # Ignore all storage content
-backend/app/storage/*
+# backend/app/storage/*
 
 # But keep the directory structure with .gitkeep files
-!backend/app/storage/models/.gitkeep
-!backend/app/storage/models/llm/.gitkeep
-!backend/app/storage/models/embeddings/.gitkeep
+# !backend/app/storage/models/.gitkeep
+# !backend/app/storage/models/llm/.gitkeep
+# !backend/app/storage/models/embeddings/.gitkeep
+
+# Backend storage
+backend/storage/
+backend/storage/*
+!backend/storage/.gitkeep
+!backend/storage/models/.gitkeep
+!backend/storage/embeddings/.gitkeep

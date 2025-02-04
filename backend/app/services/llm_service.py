@@ -111,15 +111,15 @@ class LLMService:
             max_tokens = 4096  # Increased from default
             
             # Generate answer
-            if isinstance(model, OpenAILLM):
-                response = await model.generate_answer(prompt)
-            else:
-                # For local LLM, use increased context and response length
-                response = await model.generate_answer(
-                    prompt,
-                    max_tokens=max_tokens,
-                    context_window=4096
-                )
+            # if isinstance(model, OpenAILLM):
+            response = await model.generate_answer(prompt)
+            # else:
+            #     # For local LLM, use increased context and response length
+            #     response = await model.generate_answer(
+            #         prompt,
+            #         max_tokens=max_tokens,
+            #         context_window=4096
+            #     )
 
             return response
         except Exception as e:

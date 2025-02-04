@@ -37,44 +37,44 @@ class QAService:
             
             # 1. Handle URLs in question
             url_contents = []
-            if self.url_service:
-                urls = await self.url_service.extract_urls(question)
-                if urls:
-                    logger.info(f"Found URLs in question: {urls}")
-                for url in urls:
-                    content = await self.url_service.fetch_url_content(url)
-                    if content:
-                        logger.info(f"Successfully fetched content from {url}")
-                        url_contents.append(content)
-                    else:
-                        logger.warning(f"Failed to fetch content from {url}")
+            # if self.url_service:
+            #     urls = await self.url_service.extract_urls(question)
+            #     if urls:
+            #         logger.info(f"Found URLs in question: {urls}")
+            #     for url in urls:
+            #         content = await self.url_service.fetch_url_content(url)
+            #         if content:
+            #             logger.info(f"Successfully fetched content from {url}")
+            #             url_contents.append(content)
+            #         else:
+            #             logger.warning(f"Failed to fetch content from {url}")
             
             # 2. Check if question needs DB access
             db_data = None
-            if self.llm_service:
-                needs_db = await self.llm_service.is_db_question(question)
-                logger.info(f"Question requires DB access: {needs_db}")
-                if needs_db:
-                    db_data = await self._get_db_data(question)
-                    if db_data:
-                        logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
+            # if self.llm_service:
+            #     needs_db = await self.llm_service.is_db_question(question)
+            #     logger.info(f"Question requires DB access: {needs_db}")
+            #     if needs_db:
+            #         db_data = await self._get_db_data(question)
+            #         if db_data:
+            #             logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
             
             # 3. Get document context if enabled
             context = ""
             source_nodes = []
-            if include_docs:
-                logger.info("Searching document context...")
-                query_bundle, search_results = await self.index_service.query(question)
-                source_nodes = search_results
-                logger.info(f"Found {len(source_nodes)} relevant document nodes")
-                if source_nodes:
-                    context += "\n\nDocument Context:\n"
-                    for node in source_nodes:
-                        if node['text'].strip():  # Only add non-empty text
-                            context += f"\nFrom {node['filename']}:\n{node['text']}\n"
-                            context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
-                else:
-                    context += "\n\nNo relevant documents found."
+            # if include_docs:
+            #     logger.info("Searching document context...")
+            #     query_bundle, search_results = await self.index_service.query(question)
+            #     source_nodes = search_results
+            #     logger.info(f"Found {len(source_nodes)} relevant document nodes")
+            #     if source_nodes:
+            #         context += "\n\nDocument Context:\n"
+            #         for node in source_nodes:
+            #             if node['text'].strip():  # Only add non-empty text
+            #                 context += f"\nFrom {node['filename']}:\n{node['text']}\n"
+            #                 context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
+            #     else:
+            #         context += "\n\nNo relevant documents found."
             
             # 4. Combine all context sources
             if url_contents:
@@ -86,10 +86,11 @@ class QAService:
             
             # 5. Format prompt with all context
             logger.info("Preparing prompt according question language...")
-            prompt = self.lang_service.format_prompt(
-                question=question,
-                context=context
-            )
+            # prompt = self.lang_service.format_prompt(
+            #     question=question,
+            #     context=context
+            # )
+            prompt = question
             
             logger.info(f"Generated prompt (length: {len(prompt)} chars)")
             logger.debug(f"Full prompt: {prompt}")

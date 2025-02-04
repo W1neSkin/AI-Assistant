@@ -18,7 +18,9 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "downlevelIteration": true
   },
   "include": [
     "src"

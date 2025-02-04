@@ -7,12 +7,15 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "local"
     OPENAI_API_KEY: str = Field("", description="OpenAI API Key")
     OPENAI_MODEL: str = Field("gpt-3.5-turbo", description="OpenAI Model to use")
+    DEEPSEEK_API_KEY: str = Field("", description="DeepSeek API Key")
+    DEEPSEEK_MODEL: str = Field("deepseek/deepseek-r1:free", description="DeepSeek Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
     MAX_TOKENS: int = 512
     LLM_MODEL_PATH: str = Field(
         "/app/storage/models/llm/mistral.gguf",
         description="Path to local LLM model file"
     )
+    LLM_MODEL_NAME: str = "deepseek-r1:7b"
     
     # Search Settings
     DEFAULT_INCLUDE_DOCS: bool = Field(True, description="Include document search by default")
@@ -44,5 +47,10 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'
+
+class DebugSettings(BaseSettings):
+    PROFILE_QUERIES: bool = Field(False, description="Profile database queries")
+    LOG_LEVEL: str = Field("DEBUG", description="Logging level in debug mode")
+    RELOAD_DELAY: float = Field(0.5, description="Delay for hot reload")
 
 settings = Settings() 

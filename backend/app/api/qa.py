@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, Body
 from typing import List, Dict, Any
 from urllib.parse import unquote
 from app.core.config import settings
@@ -44,12 +44,4 @@ async def get_answer(
         return response
     except Exception as e:
         logger.error(f"Error processing query '{query}': {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/models")
-async def get_available_models():
-    """Get list of available model types."""
-    return {
-        "models": [model.value for model in ModelType],
-        "current": settings.LLM_PROVIDER
-    } 
+        raise HTTPException(status_code=500, detail=str(e)) 

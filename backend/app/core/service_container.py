@@ -8,6 +8,7 @@ from app.services.cache_service import CacheService
 from app.services.sql_generator import SQLGenerator
 from app.services.qa_service import QAService
 from app.utils.logger import setup_logger
+from app.llm.local_llm import LocalLLM
 
 logger = setup_logger(__name__)
 
@@ -67,6 +68,10 @@ class ServiceContainer:
                 self.lang_service
             )
 
+            # Initialize LLM first
+            local_llm = LocalLLM()
+            await local_llm.initialize()
+
             logger.info("All services initialized successfully")
 
         except Exception as e:
@@ -82,4 +87,18 @@ class ServiceContainer:
             await self.index_service.close()
             logger.info("Services cleaned up successfully")
         except Exception as e:
-            logger.error(f"Error cleaning up services: {str(e)}") 
+            logger.error(f"Error cleaning up services: {str(e)}")
+
+    async def init_services(self):
+        # Initialize LLM first
+        local_llm = LocalLLM()
+        await local_llm.initialize()
+        
+        # Then initialize LlamaIndex
+        llama_service = LlamaIndexService()
+        await llama_service.initialize()
+        
+        return {
+            "llm": local_llm,
+            "index_service": llama_service
+        } 

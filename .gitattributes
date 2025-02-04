@@ -1,25 +1,49 @@
-# Set default behavior to automatically normalize line endings
+# Auto detect text files and perform LF normalization
 * text=auto
 
-# Force batch scripts to always use CRLF line endings
-*.{cmd,[cC][mM][dD]} text eol=crlf
-*.{bat,[bB][aA][tT]} text eol=crlf
+# Python files
+*.py text diff=python
+*.pyi text diff=python
+*.pyw text diff=python
+*.ipynb text diff=python
 
-# Force bash scripts to always use LF line endings
+# Docker files
+*.dockerfile text
+Dockerfile text
+.dockerignore text
+docker-compose*.yml text
+
+# Shell scripts
 *.sh text eol=lf
+*.bash text eol=lf
 
-# Frontend files
-*.js text eol=lf
-*.jsx text eol=lf
-*.ts text eol=lf
-*.tsx text eol=lf
-*.json text eol=lf
-*.css text eol=lf
-*.scss text eol=lf
-*.html text eol=lf
+# Documentation
+*.md text diff=markdown
+*.txt text
+*.rst text
 
-# Backend files
-*.py text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-requirements.txt text eol=lf 
+# Web files
+*.css text diff=css
+*.html text diff=html
+*.js text
+*.ts text
+*.tsx text
+*.json text
+
+# Config files
+*.yml text
+*.yaml text
+*.toml text
+*.ini text
+.env* text
+
+# Binary files (no EOL conversion)
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.gguf binary 

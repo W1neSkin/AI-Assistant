@@ -1,4 +1,4 @@
-FROM deepseek-r1:7b
+FROM ${LLM_MODEL_NAME}
 
 # GPU Configuration
 PARAMETER num_gpu_layers 35      # Load this many layers into GPU memory
