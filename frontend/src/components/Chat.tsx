@@ -172,7 +172,7 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         try {
             // Double encode to handle URLs in the query
             const encodedQuery = encodeURIComponent(encodeURIComponent(question));
-            const response = await fetch(`${API_BASE_URL}/question/${encodedQuery}`, {
+            const response = await fetch(`${API_BASE_URL}/api/question/${encodedQuery}`, {
                 headers: {
                     'X-Model-Type': isLocalModel ? 'local' : 'openai',
                     'X-Enable-Doc-Search': enableDocSearchState.toString()

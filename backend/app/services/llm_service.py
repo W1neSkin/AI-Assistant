@@ -19,7 +19,7 @@ class LLMService:
             self._local_llm = await create_llm("local")
             await self._local_llm.initialize()
             
-        if not self._openai_llm and settings.OPENAI_API_KEY:
+        if not self._openai_llm and settings.DEEPSEEK_API_KEY:
             self._openai_llm = await create_llm("openai")
             await self._openai_llm.initialize()
 
@@ -31,11 +31,14 @@ class LLMService:
     async def switch_provider(self, provider: Literal["local", "openai"]) -> bool:
         """Switch between LLM providers"""
         try:
+            logger.info(f"Attempting to switch to {provider} provider")
             if provider == "openai" and not self._openai_llm:
-                raise ValueError("OpenAI model not initialized - missing API key")
-            
+                logger.info("OpenAI model not initialized, creating new instance")
+                self._openai_llm = await create_llm("openai")
+                await self._openai_llm.initialize()
+                
             self._current_provider = provider
-            logger.info(f"Switched to {provider} model")
+            logger.info(f"Successfully switched to {provider} model")
             return True
         except Exception as e:
             logger.error(f"Error switching provider: {str(e)}")
@@ -100,27 +103,9 @@ class LLMService:
     async def generate_answer(self, prompt: str) -> str:
         """Generate answer using current model"""
         try:
-            # Initialize if needed
-            if not self._local_llm:
-                self._local_llm = await create_llm()
-
-            # Get current model
             model = self._get_current_model()
-            
-            # Increase max tokens for response
-            max_tokens = 4096  # Increased from default
-            
-            # Generate answer
-            # if isinstance(model, OpenAILLM):
+            logger.info(f"Using model: {self._current_provider}")
             response = await model.generate_answer(prompt)
-            # else:
-            #     # For local LLM, use increased context and response length
-            #     response = await model.generate_answer(
-            #         prompt,
-            #         max_tokens=max_tokens,
-            #         context_window=4096
-            #     )
-
             return response
         except Exception as e:
             logger.error(f"Error generating answer: {str(e)}")

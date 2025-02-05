@@ -21,7 +21,7 @@ export const uploadFile = async (file: File) => {
     
     try {
         const response = await axios.post<UploadResponse>(
-            `${API_URL}/upload`, 
+            `${API_URL}/api/upload`, 
             formData,
             {
                 headers: {
@@ -40,7 +40,7 @@ export const uploadFile = async (file: File) => {
 
 export const clearAllData = async () => {
     try {
-        const response = await axios.delete<{ status: string; message: string; }>(`${API_URL}/clear-data`);
+        const response = await axios.delete<{ status: string; message: string; }>(`${API_URL}/api/clear-data`);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data) {
@@ -52,7 +52,7 @@ export const clearAllData = async () => {
 
 export const getDocuments = async (): Promise<Document[]> => {
     try {
-        const response = await axios.get<Document[]>(`${API_URL}/documents`);
+        const response = await axios.get<Document[]>(`${API_URL}/api/documents`);
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data) {
@@ -63,7 +63,7 @@ export const getDocuments = async (): Promise<Document[]> => {
 };
 
 export const deleteDocument = async (docId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/documents/${docId}`, {
+    const response = await fetch(`${API_URL}/api/documents/${docId}`, {
         method: 'DELETE',
     });
 
@@ -75,7 +75,7 @@ export const deleteDocument = async (docId: string): Promise<void> => {
 
 export const updateDocumentStatus = async (docId: string, active: boolean): Promise<void> => {
     try {
-        await axios.patch(`${API_URL}/documents/${docId}`, { active });
+        await axios.patch(`${API_URL}/api/documents/${docId}`, { active });
     } catch (error) {
         if (axios.isAxiosError(error) && error.response?.data) {
             throw new Error(error.response.data.detail || 'Failed to update document status');

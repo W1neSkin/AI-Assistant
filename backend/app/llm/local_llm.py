@@ -26,6 +26,7 @@ class LocalLLM:
 
     async def generate_answer(self, prompt: str, max_tokens: int = 4096) -> str:
         try:
+            logger.info(f"Generating answer with Local LLM model: {self.model_name}")
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json={

@@ -24,6 +24,10 @@ async def get_answer(
 ):
     """Get answer for the question"""
     try:
+        logger.debug(f"Received question request: {query}")
+        logger.debug(f"Model type: {x_model_type}")
+        logger.debug(f"Enable doc search: {x_enable_doc_search}")
+        
         # 1. Get QA service from container
         container = ServiceContainer.get_instance()     
         if not container.qa_service:

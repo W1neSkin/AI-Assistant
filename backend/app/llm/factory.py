@@ -16,7 +16,7 @@ async def create_llm(model_type: str = None):
         
         if model == "openai":
             if not settings.DEEPSEEK_API_KEY:
-                raise ValueError("OpenAI API key is not configured")
+                raise ValueError("Deepseek API key is not configured")
             return OpenAILLM()
         return LocalLLM(model_name=settings.LLM_MODEL_NAME)
     except Exception as e:

@@ -35,6 +35,11 @@ class QAService:
             start_time = time.time()
             logger.info(f"Processing question: '{question}' with model: {model_type}")
             
+            # Switch to the correct model if specified
+            if model_type and model_type != self.llm_service.current_provider:
+                await self.llm_service.switch_provider(model_type)
+                logger.info(f"Switched to {model_type} model")
+            
             # 1. Handle URLs in question
             url_contents = []
             # if self.url_service:
