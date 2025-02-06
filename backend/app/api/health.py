@@ -8,5 +8,4 @@ router = APIRouter()
 async def health_check(request: Request):
     """Health check endpoint."""
     logger.debug(f"Health check from: {request.client.host}")
-    logger.debug(f"Headers: {request.headers}")
     return {"status": "healthy"} 

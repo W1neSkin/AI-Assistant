@@ -29,7 +29,7 @@ class SettingsService:
         try:
             await self.cache_service.set(
                 self.settings_key,
-                settings.json(),
+                settings.model_dump_json(),
                 expire=None  # Don't expire
             )
             return True

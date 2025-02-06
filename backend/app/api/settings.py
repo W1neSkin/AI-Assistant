@@ -39,8 +39,12 @@ async def update_settings(
         # Update runtime services
         services.qa_service.handle_urls = settings.handle_urls
         services.qa_service.check_db_needs = settings.check_db
+        # Switch LLM provider if the model setting has changed
+        desired_provider = "openai" if settings.use_openai else "local"
+        if desired_provider != services.llm_service.current_provider:
+            await services.llm_service.change_provider(desired_provider)
         
-        return {"status": "success", "settings": settings.dict()}
+        return {"status": "success", "settings": settings.model_dump()}
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 

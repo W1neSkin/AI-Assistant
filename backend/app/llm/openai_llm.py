@@ -30,16 +30,25 @@ class OpenAILLM:
         """Generate answer using OpenAI API."""
         try:
             logger.info(f"Generating answer with OpenAI model: {self.model}")
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided context."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=settings.TEMPERATURE,
-                max_tokens=settings.MAX_TOKENS,
-            )
-            return response.choices[0].message.content.strip()
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided context."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=settings.TEMPERATURE,
+                    max_tokens=settings.MAX_TOKENS,
+                )
+                
+                if not response or not response.choices:
+                    logger.error("Empty response from OpenAI API")
+                    raise ValueError("Empty response from API")
+                    
+                return response.choices[0].message.content.strip()
+            except Exception as api_error:
+                logger.error(f"OpenAI API error: {str(api_error)}")
+                raise
             
         except Exception as e:
             logger.error(f"Error generating answer with OpenAI: {str(e)}")

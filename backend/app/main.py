@@ -28,7 +28,6 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Incoming request: {request.method} {request.url}")
-    logger.info(f"Headers: {request.headers}")
     response = await call_next(request)
     logger.info(f"Response status: {response.status_code}")
     return response

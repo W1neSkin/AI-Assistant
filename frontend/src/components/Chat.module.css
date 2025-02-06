@@ -1,10 +1,11 @@
 .chatContainer {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100vh;
     max-width: 1200px;
     margin: 0 auto;
     padding: 1rem;
+    padding-bottom: 80px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -13,11 +14,11 @@
 .messagesContainer {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-bottom: 100px;
+    margin-bottom: 120px;
 }
 
 .message {
@@ -59,21 +60,23 @@
 
 .inputContainer {
     position: fixed;
-    bottom: 60px;
-    left: 0;
+    bottom: 50px;
+    left: 120px;
     right: 0;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-top: 1px solid #eee;
-    max-width: 800px;
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #ddd;
+    max-width: 1000px;
     margin: 0 auto;
     z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .inputWrapper {
     display: flex;
     gap: 10px;
     align-items: flex-start;
+    width: 100%;
 }
 
 .controls {

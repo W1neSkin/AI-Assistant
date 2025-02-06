@@ -35,7 +35,6 @@ async def switch_provider(
     """Switch LLM provider between local and OpenAI"""
     try:
         logger.debug(f"Received switch provider request: {payload}")
-        logger.debug(f"Request headers: {request.headers}")
         provider = payload.get("provider")
         if not provider:
             raise HTTPException(400, "Missing provider in request body")
@@ -43,9 +42,9 @@ async def switch_provider(
         if not services.llm_service:
             await services.initialize()
             
-        success = await services.llm_service.switch_provider(provider.lower())
-        logger.debug(f"Switch provider result: {success}")
-        response = {"status": "success" if success else "failed", "provider": provider}
+        await services.llm_service.change_provider(provider.lower())
+        logger.debug("Provider changed successfully")
+        response = {"status": "success", "provider": provider}
         logger.debug(f"Sending response: {response}")
         return response
     

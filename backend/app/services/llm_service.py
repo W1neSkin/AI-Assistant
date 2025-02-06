@@ -9,40 +9,60 @@ logger = setup_logger(__name__)
 
 class LLMService:
     def __init__(self):
-        self._local_llm = None
-        self._openai_llm = None
-        self._current_provider: Literal["local", "openai"] = settings.LLM_PROVIDER
-
+        self._current_provider = None  # Backing attribute for current_provider
+        self.providers = {}
+        self.initialized = False
+        
     async def initialize(self):
-        """Initialize both LLM models"""
-        if not self._local_llm:
-            self._local_llm = await create_llm("local")
-            await self._local_llm.initialize()
+        """Initialize LLM providers"""
+        try:
+            # Initialize OpenAI provider
+            self.providers["openai"] = OpenAILLM()
+            await self.providers["openai"].initialize()
             
-        if not self._openai_llm and settings.DEEPSEEK_API_KEY:
-            self._openai_llm = await create_llm("openai")
-            await self._openai_llm.initialize()
+            # Initialize local provider
+            self.providers["local"] = LocalLLM()
+            await self.providers["local"].initialize()
+            
+            # Set default provider using the backing attribute
+            self._current_provider = "local"
+            self.initialized = True
+            logger.info(f"LLM Service initialized with default provider: {self._current_provider}")
+            
+        except Exception as e:
+            logger.error(f"Error initializing LLM service: {str(e)}")
+            raise
+            
+    async def change_provider(self, provider: str):
+        """Change the current LLM provider"""
+        logger.info(f"Attempting to change provider from {self.current_provider} to {provider}")
+
+        if provider not in self.providers:
+            logger.error(f"Invalid provider requested: {provider}. Available providers: {list(self.providers.keys())}")
+            raise ValueError(f"Unknown provider: {provider}")
+
+        self._current_provider = provider
+        logger.info(f"Successfully changed provider to {provider}")
+        
+    async def generate_answer(self, prompt: str) -> str:
+        """Generate answer using current provider"""
+        if not self.current_provider:
+            logger.error("No LLM provider selected")
+            raise ValueError("No LLM provider selected")
+            
+        logger.info(f"Generating answer using provider: {self.current_provider}")
+        provider = self.providers[self.current_provider]
+        return await provider.generate_answer(prompt)
 
     @property
     def current_provider(self) -> str:
         """Get current LLM provider"""
         return self._current_provider
 
-    async def switch_provider(self, provider: Literal["local", "openai"]) -> bool:
-        """Switch between LLM providers"""
-        try:
-            logger.info(f"Attempting to switch to {provider} provider")
-            if provider == "openai" and not self._openai_llm:
-                logger.info("OpenAI model not initialized, creating new instance")
-                self._openai_llm = await create_llm("openai")
-                await self._openai_llm.initialize()
-                
-            self._current_provider = provider
-            logger.info(f"Successfully switched to {provider} model")
-            return True
-        except Exception as e:
-            logger.error(f"Error switching provider: {str(e)}")
-            return False
+    @current_provider.setter
+    def current_provider(self, value: str):
+        """Set current LLM provider"""
+        self._current_provider = value
 
     async def is_db_question(self, question: str) -> bool:
         """Use current LLM to determine if question needs database access"""
@@ -85,7 +105,7 @@ class LLMService:
     async def generate_sql(self, question: str, schema: str) -> str:
         """Generate SQL query using LLM"""
         try:
-            if not self._local_llm and not self._openai_llm:
+            if not self.current_provider:
                 await self.initialize()
             prompt = f"""
             Given this database schema:
@@ -100,21 +120,10 @@ class LLMService:
             logger.error(f"Error generating SQL: {str(e)}")
             raise
 
-    async def generate_answer(self, prompt: str) -> str:
-        """Generate answer using current model"""
-        try:
-            model = self._get_current_model()
-            logger.info(f"Using model: {self._current_provider}")
-            response = await model.generate_answer(prompt)
-            return response
-        except Exception as e:
-            logger.error(f"Error generating answer: {str(e)}")
-            raise
-
     def _get_current_model(self):
         """Get current LLM model instance"""
-        if self._current_provider == "openai":
-            if not self._openai_llm:
+        if self.current_provider == "openai":
+            if not self.providers.get("openai"):
                 raise ValueError("OpenAI model not initialized")
-            return self._openai_llm
-        return self._local_llm 
+            return self.providers["openai"]
+        return self.providers[self.current_provider] 
