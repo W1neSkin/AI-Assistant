@@ -15,14 +15,16 @@ class QAService:
         self.url_service = None
         self.cache_service = None
         self.lang_service = None
+        self.settings_service = None
 
-    def initialize(self, llm_service, index_service, url_service, cache_service, lang_service):
+    def initialize(self, llm_service, index_service, url_service, cache_service, lang_service, settings_service):
         """Initialize with required services"""
         self.llm_service = llm_service
         self.index_service = index_service
         self.url_service = url_service
         self.cache_service = cache_service
         self.lang_service = lang_service
+        self.settings_service = settings_service
 
     async def get_answer(
         self, 
@@ -35,6 +37,14 @@ class QAService:
             start_time = time.time()
             logger.info(f"Processing question: '{question}' with model: {model_type}")
             
+            # Get current settings
+            settings = await self.settings_service.get_settings()
+            
+            # Use model type from settings if set
+            if settings.use_openai:
+                model_type = "openai"
+                logger.info("Using OpenAI model from settings")
+            
             # Switch to the correct model if specified
             if model_type and model_type != self.llm_service.current_provider:
                 await self.llm_service.switch_provider(model_type)
@@ -42,44 +52,49 @@ class QAService:
             
             # 1. Handle URLs in question
             url_contents = []
-            # if self.url_service:
-            #     urls = await self.url_service.extract_urls(question)
-            #     if urls:
-            #         logger.info(f"Found URLs in question: {urls}")
-            #     for url in urls:
-            #         content = await self.url_service.fetch_url_content(url)
-            #         if content:
-            #             logger.info(f"Successfully fetched content from {url}")
-            #             url_contents.append(content)
-            #         else:
-            #             logger.warning(f"Failed to fetch content from {url}")
+            if self.url_service and settings.handle_urls:
+                urls = await self.url_service.extract_urls(question)
+                if urls:
+                    logger.info(f"Found URLs in question: {urls}")
+                for url in urls:
+                    content = await self.url_service.fetch_url_content(url)
+                    if content:
+                        logger.info(f"Successfully fetched content from {url}")
+                        url_contents.append(content)
+                    else:
+                        logger.warning(f"Failed to fetch content from {url}")
             
             # 2. Check if question needs DB access
             db_data = None
-            # if self.llm_service:
-            #     needs_db = await self.llm_service.is_db_question(question)
-            #     logger.info(f"Question requires DB access: {needs_db}")
-            #     if needs_db:
-            #         db_data = await self._get_db_data(question)
-            #         if db_data:
-            #             logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
+            if self.llm_service and settings.check_db:
+                needs_db = await self.llm_service.is_db_question(question)
+                logger.info(f"Question requires DB access: {needs_db}")
+                if needs_db:
+                    db_data = await self._get_db_data(question)
+                    if db_data:
+                        logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
             
             # 3. Get document context if enabled
             context = ""
             source_nodes = []
-            # if include_docs:
-            #     logger.info("Searching document context...")
-            #     query_bundle, search_results = await self.index_service.query(question)
-            #     source_nodes = search_results
-            #     logger.info(f"Found {len(source_nodes)} relevant document nodes")
-            #     if source_nodes:
-            #         context += "\n\nDocument Context:\n"
-            #         for node in source_nodes:
-            #             if node['text'].strip():  # Only add non-empty text
-            #                 context += f"\nFrom {node['filename']}:\n{node['text']}\n"
-            #                 context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
-            #     else:
-            #         context += "\n\nNo relevant documents found."
+            if include_docs and settings.doc_search:
+                logger.info("Searching document context...")
+                try:
+                    search_results = await self.index_service.query(question)
+                    source_nodes = search_results
+                except Exception as e:
+                    logger.error(f"Error querying index: {str(e)}")
+                    search_results = []
+                    source_nodes = []
+                logger.info(f"Found {len(source_nodes)} relevant document nodes")
+                if source_nodes:
+                    context += "\n\nDocument Context:\n"
+                    for node in source_nodes:
+                        if node['text'].strip():  # Only add non-empty text
+                            context += f"\nFrom {node['filename']}:\n{node['text']}\n"
+                            context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
+                else:
+                    context += "\n\nNo relevant documents found."
             
             # 4. Combine all context sources
             if url_contents:
@@ -91,11 +106,10 @@ class QAService:
             
             # 5. Format prompt with all context
             logger.info("Preparing prompt according question language...")
-            # prompt = self.lang_service.format_prompt(
-            #     question=question,
-            #     context=context
-            # )
-            prompt = question
+            prompt = self.lang_service.format_prompt(
+                question=question,
+                context=context
+            )
             
             logger.info(f"Generated prompt (length: {len(prompt)} chars)")
             logger.debug(f"Full prompt: {prompt}")

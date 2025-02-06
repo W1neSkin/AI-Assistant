@@ -1,9 +1,8 @@
 import React, { useState, useRef, KeyboardEvent, useEffect, Component } from 'react';
-import ModelToggle from './ModelToggle';
-import DocumentSearchToggle from './DocumentSearchToggle';
 import styles from './Chat.module.css';
 import { API_BASE_URL } from '../config';
 import { useSearchParams } from 'react-router-dom';
+import SettingsDialog from './SettingsDialog';
 
 interface Message {
     type: 'question' | 'answer';
@@ -97,11 +96,7 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const [loading, setLoading] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [isLocalModel, setIsLocalModel] = useState<boolean>(true);
-    const [availableModels, setAvailableModels] = useState<string[]>([]);
-    const [searchParams, setSearchParams] = useSearchParams();
-    const enableDocSearch = searchParams.get('docSearch') !== 'false';
-    const [enableDocSearchState, setEnableDocSearchState] = useState<boolean>(true);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     useEffect(() => {
         // Test backend connectivity
@@ -115,30 +110,6 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
             }
         };
         testBackend();
-
-        // Fetch available models on component mount
-        const fetchModels = async () => {
-            try {
-                console.log('Fetching models from:', `${API_BASE_URL}/api/models`);
-                const response = await fetch(`${API_BASE_URL}/api/models`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                console.log('Raw response:', data);
-                setAvailableModels(data.models);
-                setIsLocalModel(data.current === 'local');
-            } catch (error) {
-                console.error('Error fetching models:', error);
-            }
-        };
-
-        fetchModels();
     }, []);
 
     const scrollToBottom = () => {
@@ -170,12 +141,9 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         setLoading(true);
 
         try {
-            // Double encode to handle URLs in the query
             const encodedQuery = encodeURIComponent(encodeURIComponent(question));
             const response = await fetch(`${API_BASE_URL}/api/question/${encodedQuery}`, {
                 headers: {
-                    'X-Model-Type': isLocalModel ? 'local' : 'openai',
-                    'X-Enable-Doc-Search': enableDocSearchState.toString()
                 }
             });
             if (!response.ok) {
@@ -206,11 +174,6 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleDocSearchToggle = (enabled: boolean) => {
-        setSearchParams({ docSearch: enabled.toString() });
-        setEnableDocSearchState(enabled);
     };
 
     return (
@@ -249,19 +212,6 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                         placeholder="Type your question and press Enter to send (Shift+Enter for new line)"
                         className={styles.input}
                     />
-                    <div className={styles.controls}>
-                        <ModelToggle
-                            isLocal={isLocalModel}
-                            onToggle={setIsLocalModel}
-                            disabled={loading}
-                            models={availableModels}
-                        />
-                        <DocumentSearchToggle 
-                            enableDocSearch={enableDocSearchState}
-                            onToggle={handleDocSearchToggle}
-                            disabled={loading}
-                        />
-                    </div>
                     <div className={styles.buttonGroup}>
                         <button 
                             onClick={onManageDocuments}
@@ -269,6 +219,13 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                             title="Manage Documents"
                         >
                             <span className="material-icons">folder</span>
+                        </button>
+                        <button 
+                            onClick={() => setSettingsOpen(true)}
+                            className={styles.iconButton}
+                            title="Settings"
+                        >
+                            <span className="material-icons">settings</span>
                         </button>
                         <button 
                             onClick={handleClear}
@@ -281,6 +238,10 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
                     </div>
                 </div>
             </div>
+            <SettingsDialog 
+                open={settingsOpen} 
+                onClose={() => setSettingsOpen(false)} 
+            />
         </div>
     );
 };

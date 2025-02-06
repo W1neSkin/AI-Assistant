@@ -70,7 +70,8 @@ services:
     image: docker.io/library/redis:7-alpine
     ports:
       - "6379:6379"
-    
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -149,6 +150,7 @@ volumes:
   weaviate_data:
   postgres_data:
   ollama_data:
+  redis_data:
 
 networks:
   app-network:
