@@ -102,11 +102,21 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         // Test backend connectivity
         const testBackend = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/`);
+                const response = await fetch(`${API_BASE_URL}/api/health`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
-                console.log('Backend status:', data);
+                console.log("Backend health check:", data);
+                return data.status === "healthy";
             } catch (error) {
-                console.error('Backend connection error:', error);
+                console.error("Backend connection error:", {
+                    error: error instanceof Error ? error : "Unknown error",
+                    API_BASE_URL,
+                    message: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
+                return false;
             }
         };
         testBackend();

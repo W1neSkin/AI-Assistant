@@ -48,7 +48,7 @@ class QAService:
             # Switch to the correct model if specified
             if model_type and model_type != self.llm_service.current_provider:
                 logger.info(f"Model switch needed: {self.llm_service.current_provider} -> {model_type}")
-                await self.llm_service.switch_provider(model_type)
+                await self.llm_service.change_provider(model_type)
                 logger.info(f"Switched to {model_type} model")
             else:
                 logger.info(f"Using current model: {self.llm_service.current_provider}")

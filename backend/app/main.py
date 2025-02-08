@@ -9,6 +9,7 @@ from app.api.qa import router as qa_router
 from app.api.system import router as system_router
 from app.utils.logger import setup_logger
 from app.core.service_container import ServiceContainer
+from app.api import documents
 
 logger = setup_logger(__name__)
 
@@ -18,7 +19,7 @@ service_container = ServiceContainer.get_instance()
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all origins for testing
+    allow_origins=["*"],  # Temporarily allow all for debugging
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,15 +36,15 @@ async def log_requests(request: Request, call_next):
 @app.get("/")
 async def root():
     """Root endpoint to verify server is running."""
-    return {"status": "running"}
+    return {"status": "running", "api_version": "1.2.0"}
 
 # Initialize services
 llama_service = LlamaIndexService()
 local_llm = LocalLLM(base_url="http://ollama:11434")
 
 # Include routers
-app.include_router(health_router, tags=["health"])
-app.include_router(documents_router, tags=["documents"])
+app.include_router(health_router, prefix="/api", tags=["health"])
+app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(qa_router, prefix="/api", tags=["qa"])
 app.include_router(system_router, prefix="/api", tags=["system"])
 app.include_router(settings_router, prefix="/api", tags=["settings"])

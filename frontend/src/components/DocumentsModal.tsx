@@ -30,7 +30,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
 
     const fetchDocuments = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/documents`);
+            const response = await fetch(`${API_BASE_URL}/api/documents`);
             if (!response.ok) throw new Error('Failed to fetch documents');
             const data = await response.json();
             setDocuments(data);
@@ -49,7 +49,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
         setError(null);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/upload`, {
+            const response = await fetch(`${API_BASE_URL}/api/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -77,7 +77,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
                 doc.id === docId ? { ...doc, active: !currentActive } : doc
             ));
 
-            const response = await fetch(`${API_BASE_URL}/documents/${docId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/documents/${docId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
                 method: 'DELETE',
             });
 
@@ -110,6 +110,23 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
             await fetchDocuments();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to delete document');
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!window.confirm("Are you sure you want to clear all documents? This action cannot be undone.")) {
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/documents/clear`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error('Failed to clear all documents');
+            }
+            await fetchDocuments();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to clear all documents');
         }
     };
 
@@ -204,6 +221,15 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
                                 </div>
                             ))
                         )}
+                    </div>
+                    <div className={styles.clearAllSection}>
+                        <button
+                            onClick={handleClearAll}
+                            disabled={uploading}
+                            className={styles.clearAllButton}
+                        >
+                            <span className="material-icons">delete_sweep</span> Clear All Documents
+                        </button>
                     </div>
                 </div>
             </div>

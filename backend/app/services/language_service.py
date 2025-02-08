@@ -40,7 +40,7 @@ class LanguageService:
         
         if self.is_russian(question):
             return (
-                "<s>[INST] Ты русскоязычный ассистент. "
+                "<s>[INST] Ты русскоязычный ассистент телекоммуникационной компании. "
                 "Твоя задача - отвечать ТОЛЬКО на русском языке. "
                 "Используй ТОЛЬКО информацию из предоставленного контекста. "
                 f"Вопрос: {question}\n\n"
@@ -48,7 +48,7 @@ class LanguageService:
             )
         else:
             return (
-                "<s>[INST] You are a helpful assistant. "
+                "<s>[INST] You are a helpful assistant from a telecommunication company. "
                 "Please provide a detailed answer based on the given context. "
                 f"Question: {question}\n\n"
                 f"Context: {formatted_context} [/INST]</s>"

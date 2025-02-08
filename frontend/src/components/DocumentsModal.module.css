@@ -257,4 +257,28 @@
 
 .fileMetadata .material-icons {
     font-size: 16px;
+}
+
+.clearAllSection {
+    margin-top: 1rem;
+    text-align: right;
+}
+
+.clearAllButton {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clearAllButton:hover {
+    background-color: #c82333;
+}
+
+.clearAllButton:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
 } 

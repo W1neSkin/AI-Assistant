@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = Field("", description="DeepSeek API Key")
     DEEPSEEK_MODEL: str = Field("deepseek/deepseek-r1:free", description="DeepSeek Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
-    MAX_TOKENS: int = 512
+    MAX_TOKENS: int = 6144
     LLM_MODEL_PATH: str = Field(
         "/app/storage/models/llm/mistral.gguf",
         description="Path to local LLM model file"

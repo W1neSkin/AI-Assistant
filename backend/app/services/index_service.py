@@ -50,7 +50,9 @@ class LlamaIndexService:
         self.index = VectorStoreIndex([], storage_context=storage_context)
 
     async def index_document(self, content: bytes, filename: str) -> None:
+        """Index a document"""
         try:
+            logger.debug(f"Starting document indexing for {filename}")
             # Handle different file types
             if filename.lower().endswith('.pdf'):
                 text = extract_text_from_pdf(content)
@@ -59,28 +61,32 @@ class LlamaIndexService:
             else:
                 text = content.decode('utf-8')
 
+            # Generate unique document ID
             doc_id = str(uuid.uuid4())
+            
+            # Split text into chunks
             chunks = chunk_text(text)
+            logger.debug(f"Created {len(chunks)} chunks from document")
             
             # Create TextNode objects with metadata
             nodes = [
                 TextNode(
                     text=chunk,
                     metadata={
-                        "filename": filename,
                         "doc_id": doc_id,
-                        "chunk_id": i,
-                        "active": True
+                        "filename": filename,
+                        "active": "true",
+                        "chunk_id": i
                     },
                     embedding=self.embed_model.get_text_embedding(chunk)
                 )
                 for i, chunk in enumerate(chunks)
             ]
             
-            # Use vector store's add method
+            # Store nodes in vector store
             self.vector_store.add(nodes)
             
-            logger.info(f"Indexed {len(chunks)} chunks for {filename}")
+            logger.info(f"Indexed {len(chunks)} chunks for {filename} with ID {doc_id}")
         except Exception as e:
             logger.error(f"Error indexing document: {str(e)}")
             raise
@@ -116,29 +122,36 @@ class LlamaIndexService:
     async def get_documents(self) -> List[Dict[str, Any]]:
         """Get list of all documents with their status"""
         try:
-            # Get all document IDs using vector store's metadata filter
+            logger.debug("Attempting to fetch documents from vector store")
+            # Get all documents using vector store query
             query_result = self.vector_store.query(
                 VectorStoreQuery(
-                    query_embedding=None,
-                    similarity_top_k=1000,
-                    filters=MetadataFilters(filters=[
-                        ExactMatchFilter(key="active", value="true")
-                    ])
+                    query_embedding=None,  # No query embedding needed for listing all docs
+                    similarity_top_k=1000,  # Get all documents
+                    mode=VectorStoreQueryMode.DEFAULT
                 )
             )
             
-            # Group by doc_id to get unique documents
-            documents = {}
-            for node in query_result.nodes:
-                doc_id = node.metadata.get("doc_id")
-                if doc_id and doc_id not in documents:
-                    documents[doc_id] = {
-                        "id": doc_id,
-                        "filename": node.metadata.get("filename"),
-                        "active": node.metadata.get("active", True)
-                    }
+            logger.debug(f"Query result: {query_result}")
             
-            return list(documents.values())
+            # Convert to expected format
+            documents = []
+            seen_docs = set()
+            
+            for node in query_result.nodes:
+                logger.debug(f"Processing node: {node.metadata}")
+                doc_id = node.metadata.get("doc_id")
+                if doc_id and doc_id not in seen_docs:
+                    seen_docs.add(doc_id)
+                    documents.append({
+                        "id": doc_id,
+                        "filename": node.metadata.get("filename", "unknown"),
+                        "active": node.metadata.get("active", "true") == "true"
+                    })
+            
+            logger.info(f"Retrieved {len(documents)} unique documents")
+            logger.debug(f"Final documents list: {documents}")
+            return documents
         except Exception as e:
             logger.error(f"Error fetching documents: {str(e)}")
             raise

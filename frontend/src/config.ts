@@ -6,8 +6,7 @@ declare global {
     }
 }
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 
-    'http://localhost:8000';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export const ALLOWED_EXTENSIONS = ['txt', 'pdf', 'html', 'docx'];
 export const ACCEPT_TYPES = '.txt,.pdf,.html,.htm,.docx';
