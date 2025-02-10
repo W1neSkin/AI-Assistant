@@ -4,73 +4,93 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.75);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
 }
 
-.modal {
-    background: white;
+.modalContent {
+    position: relative;
+    background: #1a1a1a;
+    padding: 2rem;
     border-radius: 8px;
-    padding: 20px;
     width: 90%;
-    max-width: 600px;
+    max-width: 800px;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
+    color: #e0e0e0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-.modalHeader {
+.header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-}
-
-.modalHeader h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #333;
+    margin-bottom: 1.5rem;
 }
 
 .closeButton {
     background: none;
     border: none;
-    font-size: 24px;
+    color: #a0aec0;
     cursor: pointer;
-    color: #666;
-}
-
-.uploadSection {
-    padding: 16px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border: 1px dashed #dee2e6;
-}
-
-.uploadButton {
-    width: 100%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.5rem;
+    transition: color 0.2s;
+    border-radius: 4px;
 }
 
-.uploadButton:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
+.closeButton:hover {
+    color: #e0e0e0;
+    background: #2d3748;
 }
 
-.uploadButton .material-icons {
-    font-size: 20px;
+.documentStats {
+    color: #a0aec0;
+    margin-bottom: 1rem;
+}
+
+.searchBox {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    background: #2c5282;
+    border: 1px solid #2d3748;
+}
+
+.searchInput {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    background: #2d3748;
+    color: #e0e0e0;
+}
+
+.searchInput::placeholder {
+    color: #a0aec0;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: #2c5282;
 }
 
 .documentList {
     flex: 1;
     overflow-y: auto;
-    margin: 20px 0;
-    border: 1px solid #eee;
+    margin: 1rem 0;
+    border: 1px solid #2d3748;
     border-radius: 4px;
 }
 
@@ -78,24 +98,94 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #eee;
-    transition: background-color 0.2s;
-}
-
-.documentItem:hover {
-    background-color: #f8f9fa;
+    padding: 1rem;
+    border-bottom: 1px solid #2d3748;
 }
 
 .documentItem:last-child {
     border-bottom: none;
 }
 
-.documentInfo {
+.filename {
+    color: #e0e0e0;
+}
+
+.fileMetadata {
+    color: #a0aec0;
+    font-size: 0.9rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #2d3748;
+    color: #e0e0e0;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    background: #4a5568;
+}
+
+.deleteButton {
+    background: #2d3748;
+    color: #fc8181;
+}
+
+.deleteButton:hover {
+    background: #4a5568;
+}
+
+.uploadButton {
+    width: 40px;
+    height: 40px;
+    background: #2c5282;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex: 1;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.uploadButton:hover {
+    background: #2a4365;
+}
+
+.clearAllButton {
+    width: 40px;
+    height: 40px;
+    background: #2d3748;
+    color: #fc8181;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.clearAllButton:hover {
+    background: #4a5568;
+}
+
+.noDocuments {
+    padding: 2rem;
+    text-align: center;
+    color: #a0aec0;
+    font-style: italic;
 }
 
 .checkbox {
@@ -112,31 +202,6 @@
     cursor: pointer;
 }
 
-.filename {
-    font-size: 1rem;
-    color: #333;
-}
-
-.deleteButton {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    background-color: transparent;
-    color: #dc3545;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    opacity: 0.6;
-}
-
-.deleteButton:hover {
-    background-color: #dc35451a;
-    opacity: 1;
-}
-
 .deleteButton .material-icons {
     font-size: 20px;
 }
@@ -148,34 +213,15 @@
     border-top: 1px solid #eee;
 }
 
-.clearAllButton {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.clearAllButton:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
+.clearAllSection {
+    margin-top: 1rem;
+    text-align: right;
 }
 
 .error {
-    color: #dc3545;
-    margin-top: 10px;
+    color: #fc8181;
+    margin: 0.5rem 0;
     text-align: center;
-    padding: 10px;
-    background-color: #f8d7da;
-    border-radius: 4px;
-}
-
-.noDocuments {
-    text-align: center;
-    padding: 20px;
-    color: #666;
-    font-style: italic;
 }
 
 .documentStats {
@@ -183,17 +229,6 @@
     gap: 16px;
     color: #666;
     font-size: 0.9rem;
-    margin-bottom: 16px;
-}
-
-.searchBox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
     margin-bottom: 16px;
 }
 
@@ -242,13 +277,6 @@
     gap: 4px;
 }
 
-.fileMetadata {
-    display: flex;
-    gap: 12px;
-    font-size: 0.8rem;
-    color: #666;
-}
-
 .fileMetadata span {
     display: flex;
     align-items: center;
@@ -257,25 +285,6 @@
 
 .fileMetadata .material-icons {
     font-size: 16px;
-}
-
-.clearAllSection {
-    margin-top: 1rem;
-    text-align: right;
-}
-
-.clearAllButton {
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.clearAllButton:hover {
-    background-color: #c82333;
 }
 
 .clearAllButton:disabled {

@@ -178,9 +178,6 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
 
     return (
         <div className={styles.chatContainer}>
-            <div className={styles.header}>
-                <h1>Document Q&A Bot</h1>
-            </div>
             <div className={styles.messagesContainer}>
                 {messages.map((msg, index) => (
                     <div key={index} className={`${styles.message} ${styles[msg.type]}`}>

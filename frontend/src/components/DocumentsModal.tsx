@@ -91,107 +91,101 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
         .sort((a, b) => a.filename.localeCompare(b.filename))
         .filter(doc => doc.filename.toLowerCase().includes(searchTerm.toLowerCase()));
 
+    const activeCount = documents.filter(d => d.active).length;
+
     if (!isOpen) return null;
 
     return (
         <div className={styles.modalOverlay}>
-            <div className={styles.modal}>
-                <div className={styles.modalHeader}>
-                    <h2>Manage Documents</h2>
-                    <button onClick={onClose} className={styles.closeButton}>&times;</button>
-                </div>
-                <div className={styles.modalContent}>
+            <div className={styles.modalContent}>
+                <div className={styles.header}>
                     <div className={styles.documentStats}>
-                        <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
-                        <span>{documents.filter(d => d.active).length} active</span>
+                        {documents.length} documents • {activeCount} active
                     </div>
-                    <div className={styles.searchBox}>
-                        <span className="material-icons">search</span>
-                        <input
-                            type="text"
-                            placeholder="Search documents..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div className={styles.uploadSection}>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className={`${styles.uploadButton} ${uploading ? styles.loading : ''}`}
-                        >
-                            <span className="material-icons">upload_file</span>
-                            {uploading ? 'Uploading...' : 'Upload Document'}
-                        </button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    handleUpload(file);
-                                }
-                            }}
-                            accept="application/pdf"
-                            style={{ display: 'none' }}
-                        />
-                    </div>
-                    {error && <div className={styles.error}>{error}</div>}
-                    <div className={styles.documentList}>
-                        {sortedAndFilteredDocuments.length === 0 ? (
-                            <div className={styles.noDocuments}>
-                                {searchTerm ? 'No matching documents found' : 'No documents uploaded yet'}
-                            </div>
-                        ) : (
-                            sortedAndFilteredDocuments.map(doc => (
-                                <div key={doc.id} className={styles.documentItem}>
-                                    <div className={styles.documentInfo}>
-                                        <label className={styles.checkbox}>
-                                            <input
-                                                type="checkbox"
-                                                checked={doc.active}
-                                                onChange={() => handleToggleActive(doc.id, doc.active)}
-                                            />
-                                            <div className={styles.fileDetails}>
-                                                <span className={styles.filename}>{doc.filename}</span>
-                                                <div className={styles.fileMetadata}>
-                                                    {typeof doc.size !== 'undefined' && (
-                                                        <span>
-                                                            <span className="material-icons">description</span>
-                                                            {formatFileSize(doc.size)}
-                                                        </span>
-                                                    )}
-                                                    {typeof doc.uploadedAt !== 'undefined' && (
-                                                        <span>
-                                                            <span className="material-icons">schedule</span>
-                                                            {formatDate(doc.uploadedAt)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDelete(doc.id)}
-                                        className={styles.deleteButton}
-                                        title="Delete document"
-                                    >
-                                        <span className="material-icons">delete</span>
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                    <div className={styles.clearAllSection}>
-                        <button
-                            onClick={handleClearAll}
-                            disabled={uploading}
-                            className={styles.clearAllButton}
-                        >
-                            <span className="material-icons">delete_sweep</span> Clear All Documents
-                        </button>
-                    </div>
+                    <button className={styles.closeButton} onClick={onClose}>
+                        ×
+                    </button>
                 </div>
+                {error && <div className={styles.error}>{error}</div>}
+
+                <div className={styles.searchBox}>
+                    <input
+                        type="text"
+                        className={styles.searchInput}
+                        placeholder="Search documents..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <button className={styles.uploadButton} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                        <span className="material-icons">upload</span>
+                    </button>
+                    <button 
+                        className={styles.clearAllButton} 
+                        onClick={handleClearAll}
+                        disabled={documents.length === 0}
+                    >
+                        <span className="material-icons">delete_sweep</span>
+                    </button>
+                </div>
+
+                {documents.length > 0 ? (
+                    <div className={styles.documentList}>
+                        {sortedAndFilteredDocuments.map(doc => (
+                            <div key={doc.id} className={styles.documentItem}>
+                                <div className={styles.documentInfo}>
+                                    <label className={styles.checkbox}>
+                                        <input
+                                            type="checkbox"
+                                            checked={doc.active}
+                                            onChange={() => handleToggleActive(doc.id, doc.active)}
+                                        />
+                                        <div className={styles.fileDetails}>
+                                            <span className={styles.filename}>{doc.filename}</span>
+                                            <div className={styles.fileMetadata}>
+                                                {typeof doc.size !== 'undefined' && (
+                                                    <span>
+                                                        <span className="material-icons">description</span>
+                                                        {formatFileSize(doc.size)}
+                                                    </span>
+                                                )}
+                                                {typeof doc.uploadedAt !== 'undefined' && (
+                                                    <span>
+                                                        <span className="material-icons">schedule</span>
+                                                        {formatDate(doc.uploadedAt)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                <button
+                                    onClick={() => handleDelete(doc.id)}
+                                    className={styles.deleteButton}
+                                    title="Delete document"
+                                >
+                                    <span className="material-icons">delete</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={styles.noDocuments}>
+                        No documents uploaded yet
+                    </div>
+                )}
+
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            handleUpload(file);
+                        }
+                    }}
+                    accept="application/pdf"
+                    style={{ display: 'none' }}
+                />
             </div>
         </div>
     );
