@@ -44,6 +44,18 @@ class Settings(BaseSettings):
     MAX_URL_CONTENT_SIZE: int = Field(5 * 1024 * 1024, description="Max URL content size (5MB)")
     URL_CACHE_TTL: int = Field(3600, description="URL cache TTL in seconds")
 
+    # Database settings
+    DATABASE_URL: str = "postgresql://dbuser:dbpass@postgres:5432/customerdb"
+    
+    # Frontend URL for CORS
+    FRONTEND_URL: str = "http://localhost:3000"
+    
+    # JWT settings
+    SECRET_KEY: str = "your-secret-key-here"  # Change this in production!
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

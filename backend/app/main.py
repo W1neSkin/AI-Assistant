@@ -10,20 +10,44 @@ from app.api.system import router as system_router
 from app.utils.logger import setup_logger
 from app.core.service_container import ServiceContainer
 from app.api import documents
+from contextlib import asynccontextmanager
+from app.core.init_db import init_db
+from app.db.base import get_db, create_tables
+from app.api import auth
 
 logger = setup_logger(__name__)
 
-app = FastAPI(title="Document Q&A Bot")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database with admin user on startup
+    try:
+        await create_tables()  # Create tables before initializing DB
+        async for db in get_db():
+            await init_db(db)
+            break  # We only need one session
+        
+        # Initialize other services
+        try:
+            await service_container.initialize()
+        except Exception as e:
+            logger.error(f"Failed to initialize services: {str(e)}")
+            raise
+        
+        yield
+    finally:
+        if 'db' in locals():
+            await db.close()
+
+app = FastAPI(title="Document Q&A Bot", lifespan=lifespan)
 service_container = ServiceContainer.get_instance()
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all for debugging
+    allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
 
 @app.middleware("http")
@@ -48,15 +72,7 @@ app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(qa_router, prefix="/api", tags=["qa"])
 app.include_router(system_router, prefix="/api", tags=["system"])
 app.include_router(settings_router, prefix="/api", tags=["settings"])
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    try:
-        await service_container.initialize()
-    except Exception as e:
-        logger.error(f"Failed to initialize services: {str(e)}")
-        raise
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 if __name__ == "__main__":
     import uvicorn

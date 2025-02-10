@@ -3,6 +3,7 @@ import styles from './Chat.module.css';
 import { API_BASE_URL } from '../config';
 import { useSearchParams } from 'react-router-dom';
 import SettingsDialog from './SettingsDialog';
+import { apiClient } from '../services/api';
 
 interface Message {
     type: 'question' | 'answer';
@@ -15,51 +16,13 @@ interface ChatProps {
     onManageDocuments: () => void;
 }
 
-interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
+interface ApiResponse {
+    answer: string;
     context?: {
-        source_nodes: Array<{
-            filename: string;
-            text: string;
-        }>;
+        source_nodes: Array<{ filename: string }>;
         time_taken?: number;
     };
 }
-
-interface ApiResponse {
-    answer: string;
-    context: {
-        source_nodes: Array<{
-            filename: string;
-            text: string;
-        }>;
-        time_taken: number;
-    };
-}
-
-interface ModelInfo {
-    models: string[];
-    current: string;
-}
-
-const formatSources = (context: ChatMessage['context']) => {
-    if (!context?.source_nodes?.length) return '';
-    
-    // Get unique filenames
-    const uniqueSources = [...new Set(
-        context.source_nodes.map(node => node.filename)
-    )];
-    
-    let result = '\n\nSources:\n' + uniqueSources.join('\n');
-    
-    // Add time taken if available
-    if (context.time_taken !== undefined) {
-        result += `\n\nTime: ${context.time_taken} seconds`;
-    }
-    
-    return result;
-};
 
 // Error boundary component
 class ErrorBoundary extends Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -97,6 +60,14 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const initialQuestion = searchParams.get('q');
+        if (initialQuestion) {
+            sendMessage(initialQuestion);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         // Test backend connectivity
@@ -142,6 +113,34 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         }
     };
 
+    const sendMessage = async (question: string) => {
+        try {
+            setLoading(true);
+            const response = await apiClient.post<ApiResponse>('/api/question', { question });
+            
+            setMessages(prev => [
+                ...prev,
+                { type: 'question', text: question },
+                { 
+                    type: 'answer', 
+                    text: response.answer,
+                    sources: response.context?.source_nodes?.map(node => node.filename),
+                    time_taken: response.context?.time_taken
+                }
+            ]);
+        } catch (error) {
+            console.error('Error sending message:', error);
+            setMessages(prev => [
+                ...prev,
+                { type: 'question', text: question },
+                { type: 'answer', text: 'Sorry, an error occurred. Please try again.' }
+            ]);
+        } finally {
+            setLoading(false);
+            setInput('');
+        }
+    };
+
     const handleSubmit = async () => {
         if (!input.trim() || loading) return;
 
@@ -151,21 +150,12 @@ const Chat: React.FC<ChatProps> = ({ onManageDocuments }) => {
         setLoading(true);
 
         try {
-            const encodedQuery = encodeURIComponent(encodeURIComponent(question));
-            const response = await fetch(`${API_BASE_URL}/api/question/${encodedQuery}`, {
-                headers: {
-                }
-            });
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to get answer');
-            }
-            const data: ApiResponse = await response.json();
-
+            const response = await apiClient.post<ApiResponse>('/api/question', { question });
+            
             // Add type checking and default values
-            const answer = data?.answer || 'No answer available';
-            const sources = data?.context?.source_nodes?.map(node => node.filename) || [];
-            const timeTaken = data?.context?.time_taken || 0;
+            const answer = response.answer || 'No answer available';
+            const sources = response.context?.source_nodes?.map(node => node.filename) || [];
+            const timeTaken = response.context?.time_taken || 0;
 
             setMessages(prev => [...prev, {
                 type: 'answer',

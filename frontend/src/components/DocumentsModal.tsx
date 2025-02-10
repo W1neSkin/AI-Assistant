@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './DocumentsModal.module.css';
-import { API_BASE_URL, ACCEPT_TYPES } from '../config';
+import { apiClient } from '../services/api';
 import { formatFileSize, formatDate } from '../utils/formatters';
-
-interface Document {
-    id: string;
-    filename: string;
-    active: boolean;
-    size?: number;  // in bytes
-    uploadedAt?: string;
-}
+import { Document } from '../types/api';
 
 interface DocumentsModalProps {
     isOpen: boolean;
@@ -30,41 +23,25 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
 
     const fetchDocuments = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/documents`);
-            if (!response.ok) throw new Error('Failed to fetch documents');
-            const data = await response.json();
+            const data = await apiClient.get<Document[]>('/api/documents');
             setDocuments(data);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch documents');
+        } catch (error) {
+            console.error('Failed to fetch documents:', error);
         }
     };
 
-    const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    const handleUpload = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        setUploading(true);
-        setError(null);
-
+        
         try {
-            const response = await fetch(`${API_BASE_URL}/api/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Upload failed');
-            }
-
+            setUploading(true);
+            await apiClient.upload('/api/documents/upload', formData);
             await fetchDocuments();
             onUploadComplete();
-            event.target.value = ''; // Reset file input
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Upload failed');
+        } catch (error) {
+            console.error('Upload failed:', error);
+            setError('Upload failed');
         } finally {
             setUploading(false);
         }
@@ -72,28 +49,13 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
 
     const handleToggleActive = async (docId: string, currentActive: boolean) => {
         try {
-            // Update local state immediately for better UX
-            setDocuments(docs => docs.map(doc => 
-                doc.id === docId ? { ...doc, active: !currentActive } : doc
-            ));
-
-            const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ active: !currentActive }),
+            await apiClient.patch(`/api/documents/${docId}`, { 
+                active: !currentActive 
             });
-
-            if (!response.ok) {
-                // Revert local state if server request fails
-                setDocuments(docs => docs.map(doc => 
-                    doc.id === docId ? { ...doc, active: currentActive } : doc
-                ));
-                throw new Error('Failed to update document status');
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to update document status');
+            await fetchDocuments();
+        } catch (error) {
+            console.error('Failed to toggle document status:', error);
+            setError('Failed to update document status');
         }
     };
 
@@ -102,31 +64,24 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/api/documents/${docId}`, {
-                method: 'DELETE',
-            });
-
-            if (!response.ok) throw new Error('Failed to delete document');
+            await apiClient.delete(`/api/documents/${docId}`);
             await fetchDocuments();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to delete document');
+        } catch (error) {
+            console.error('Failed to delete document:', error);
+            setError('Failed to delete document');
         }
     };
 
     const handleClearAll = async () => {
-        if (!window.confirm("Are you sure you want to clear all documents? This action cannot be undone.")) {
+        if (!window.confirm('Are you sure you want to delete all documents?')) {
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/api/documents/clear`, {
-                method: 'DELETE',
-            });
-            if (!response.ok) {
-                throw new Error('Failed to clear all documents');
-            }
+            await apiClient.delete('/api/documents/clear');
             await fetchDocuments();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to clear all documents');
+        } catch (error) {
+            console.error('Failed to clear documents:', error);
+            setError('Failed to clear documents');
         }
     };
 
@@ -171,8 +126,13 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
                         <input
                             ref={fileInputRef}
                             type="file"
-                            onChange={handleUpload}
-                            accept={ACCEPT_TYPES}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    handleUpload(file);
+                                }
+                            }}
+                            accept="application/pdf"
                             style={{ display: 'none' }}
                         />
                     </div>
@@ -195,13 +155,13 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
                                             <div className={styles.fileDetails}>
                                                 <span className={styles.filename}>{doc.filename}</span>
                                                 <div className={styles.fileMetadata}>
-                                                    {doc.size && (
+                                                    {typeof doc.size !== 'undefined' && (
                                                         <span>
                                                             <span className="material-icons">description</span>
                                                             {formatFileSize(doc.size)}
                                                         </span>
                                                     )}
-                                                    {doc.uploadedAt && (
+                                                    {typeof doc.uploadedAt !== 'undefined' && (
                                                         <span>
                                                             <span className="material-icons">schedule</span>
                                                             {formatDate(doc.uploadedAt)}

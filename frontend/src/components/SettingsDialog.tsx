@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { getSettings, saveSettings, UserSettings } from '../services/settingsService';
+import { getSettings, saveSettings } from '../services/settingsService';
 import styles from './SettingsDialog.module.css';
+import { UserSettings } from '../types/api';
 
 interface SettingsDialogProps {
     open: boolean;
     onClose: () => void;
 }
 
+interface SettingsState extends UserSettings {
+    // Add any additional settings state here
+}
+
 const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
-    const [settings, setSettings] = useState<UserSettings>({
+    const [settings, setSettings] = useState<SettingsState>({
         use_openai: false,
-        doc_search: true,
-        handle_urls: true,
-        check_db: true
+        enable_document_search: false,
+        handle_urls: false,
+        check_db: false
     });
     const [loading, setLoading] = useState(false);
 
@@ -59,7 +64,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                         <input
                             type="checkbox"
                             checked={settings.use_openai}
-                            onChange={(e) => setSettings(s => ({...s, use_openai: e.target.checked}))}
+                            onChange={(e) => setSettings((s: SettingsState) => ({...s, use_openai: e.target.checked}))}
                             disabled={loading}
                         />
                         Use OpenAI Model
@@ -69,8 +74,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                     <label>
                         <input
                             type="checkbox"
-                            checked={settings.doc_search}
-                            onChange={(e) => setSettings(s => ({...s, doc_search: e.target.checked}))}
+                            checked={settings.enable_document_search}
+                            onChange={(e) => setSettings((s: SettingsState) => ({...s, enable_document_search: e.target.checked}))}
                             disabled={loading}
                         />
                         Enable Document Search
@@ -81,7 +86,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                         <input
                             type="checkbox"
                             checked={settings.handle_urls}
-                            onChange={(e) => setSettings(s => ({...s, handle_urls: e.target.checked}))}
+                            onChange={(e) => setSettings((s: SettingsState) => ({...s, handle_urls: e.target.checked}))}
                             disabled={loading}
                         />
                         Handle URLs in Questions
@@ -92,7 +97,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                         <input
                             type="checkbox"
                             checked={settings.check_db}
-                            onChange={(e) => setSettings(s => ({...s, check_db: e.target.checked}))}
+                            onChange={(e) => setSettings((s: SettingsState) => ({...s, check_db: e.target.checked}))}
                             disabled={loading}
                         />
                         Check Database Needs
