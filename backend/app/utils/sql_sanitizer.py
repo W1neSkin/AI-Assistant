@@ -24,7 +24,8 @@ class SQLSanitizer:
         
         # Check for dangerous keywords
         for keyword in self.DANGEROUS_KEYWORDS:
-            if keyword in query_lower:
+            # Use word boundaries to match only whole words
+            if re.search(rf'\b{keyword}\b', query_lower):
                 raise ValueError(f"Dangerous SQL keyword detected: {keyword}")
         
         # Ensure query starts with SELECT

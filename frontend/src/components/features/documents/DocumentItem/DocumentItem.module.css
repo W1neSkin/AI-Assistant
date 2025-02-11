@@ -1,0 +1,55 @@
+.documentItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    background: #1a1a1a;
+}
+
+.documentInfo {
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #2c5282;
+}
+
+.fileDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filename {
+    font-size: 1rem;
+    color: #e0e0e0;
+}
+
+.fileMetadata {
+    display: flex;
+    gap: 16px;
+    color: #a0aec0;
+    font-size: 0.85rem;
+}
+
+.fileMetadata span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fileMetadata .material-icons {
+    font-size: 16px;
+} 

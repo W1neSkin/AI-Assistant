@@ -9,10 +9,16 @@ from typing import List, Dict, Any, Union
 import hashlib
 import asyncpg
 from app.core.config import settings
+import re
 
 logger = setup_logger(__name__)
 
 class DatabaseService:
+    DANGEROUS_KEYWORDS = {
+        'alter', 'drop', 'delete', 'truncate', 'update', 'insert', 
+        'grant', 'revoke', 'create', 'exec', 'execute'
+    }
+
     def __init__(self):
         self.engine = create_async_engine(
             f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
@@ -198,4 +204,27 @@ class DatabaseService:
 
         except Exception as e:
             logger.error(f"Schema retrieval error: {str(e)}")
-            raise SchemaError(f"Failed to retrieve database schema: {str(e)}") 
+            raise SchemaError(f"Failed to retrieve database schema: {str(e)}")
+
+    async def execute_query(self, query: str) -> Any:
+        """Execute a SQL query with safety checks"""
+        # Convert to lowercase for case-insensitive check
+        query_lower = query.lower()
+        
+        # Check for dangerous keywords
+        for keyword in self.DANGEROUS_KEYWORDS:
+            # Use word boundaries to match only whole words
+            if re.search(rf'\b{keyword}\b', query_lower):
+                raise ValueError(f"Dangerous SQL keyword detected: {keyword}")
+
+        # Only allow SELECT queries
+        if not query_lower.strip().startswith('select'):
+            raise ValueError("Only SELECT queries are allowed")
+
+        try:
+            async with self.engine.connect() as conn:
+                result = await conn.execute(text(query))
+                return result.fetchall()
+        except Exception as e:
+            logger.error(f"Database error: {str(e)}")
+            raise 

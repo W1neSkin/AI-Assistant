@@ -1,9 +1,8 @@
 from typing import Dict, Any, Optional
-import logging
 from app.utils.logger import setup_logger
 import time
-from urllib.parse import unquote
 from app.services.sql_generator import SQLGenerator
+from app.models.user import User
 
 
 logger = setup_logger(__name__)
@@ -26,24 +25,22 @@ class QAService:
         self.lang_service = lang_service
         self.settings_service = settings_service
 
-    async def get_answer(
-        self, 
-        question: str, 
-        model_type: str = None,
-        include_docs: bool = True
-    ) -> Dict[str, Any]:
-        """Get answer for the question"""    
+    async def get_answer(self, query: str, user: User) -> dict:
+        """Get answer for the query"""
         try:
             start_time = time.time()
-            logger.info(f"Processing question: '{question}' with model: {model_type}")
+            logger.info(f"Processing question: '{query}' with model: {self.llm_service.current_provider}")
             
             # Get current settings
             settings = await self.settings_service.get_settings()
             
             # Use model type from settings if set
-            if settings.use_openai:
-                model_type = "openai"
-                logger.info(f"Settings indicate OpenAI model should be used (current: {self.llm_service.current_provider})")
+            if user.use_cloud:
+                model_type = "cloud"
+                logger.info(f"Settings indicate cloud model should be used (current: {self.llm_service.current_provider})")
+            else:
+                model_type = "local"
+                logger.info(f"Settings indicate local model should be used (current: {self.llm_service.current_provider})")
             
             # Switch to the correct model if specified
             if model_type and model_type != self.llm_service.current_provider:
@@ -55,8 +52,8 @@ class QAService:
             
             # 1. Handle URLs in question
             url_contents = []
-            if self.url_service and settings.handle_urls:
-                urls = await self.url_service.extract_urls(question)
+            if self.url_service and user.handle_urls:
+                urls = await self.url_service.extract_urls(query)
                 if urls:
                     logger.info(f"Found URLs in question: {urls}")
                 for url in urls:
@@ -69,35 +66,26 @@ class QAService:
             
             # 2. Check if question needs DB access
             db_data = None
-            if self.llm_service and settings.check_db:
-                needs_db = await self.llm_service.is_db_question(question)
+            if self.llm_service and user.check_db:
+                needs_db = await self.llm_service.is_db_question(query)
                 logger.info(f"Question requires DB access: {needs_db}")
                 if needs_db:
-                    db_data = await self._get_db_data(question)
+                    db_data = await self._get_db_data(query)
                     if db_data:
                         logger.info(f"Retrieved DB data with query: {db_data.get('sql_query')}")
             
             # 3. Get document context if enabled
             context = ""
             source_nodes = []
-            if include_docs and settings.doc_search:
+            if user.enable_document_search:
                 logger.info("Searching document context...")
                 try:
-                    search_results = await self.index_service.query(question)
-                    source_nodes = search_results
+                    search_result = await self.index_service.query(query)
+                    if search_result:
+                        context = search_result.get("context", "")
+                        source_nodes = search_result.get("source_nodes", [])
                 except Exception as e:
-                    logger.error(f"Error querying index: {str(e)}")
-                    search_results = []
-                    source_nodes = []
-                logger.info(f"Found {len(source_nodes)} relevant document nodes")
-                if source_nodes:
-                    context += "\n\nDocument Context:\n"
-                    for node in source_nodes:
-                        if node['text'].strip():  # Only add non-empty text
-                            context += f"\nFrom {node['filename']}:\n{node['text']}\n"
-                            context += f"(Relevance Score: {node['similarity_score']:.2f})\n"
-                else:
-                    context += "\n\nNo relevant documents found."
+                    logger.error(f"Error searching documents: {str(e)}")
             
             # 4. Combine all context sources
             if url_contents:
@@ -110,14 +98,19 @@ class QAService:
             # 5. Format prompt with all context
             logger.info("Preparing prompt according question language...")
             prompt = self.lang_service.format_prompt(
-                question=question,
+                question=query,
                 context=context
             )
             
             logger.info(f"Generated prompt (length: {len(prompt)} chars)")
             logger.debug(f"Full prompt: {prompt}")
             
-            answer = await self.llm_service.generate_answer(prompt)
+            # Get answer using appropriate model
+            if user.use_cloud:
+                answer = await self.llm_service.generate_answer(prompt)
+            else:
+                answer = await self.llm_service.generate_answer(prompt)
+            
             # Extract just the answer text, not the whole response dict
             answer_text = answer.get('answer') if isinstance(answer, dict) else answer
             logger.info(f"Generated answer (length: {len(answer_text)} chars)")
@@ -144,7 +137,7 @@ class QAService:
             logger.debug(f"Returning response: {response}")
             return response
         except Exception as e:
-            logger.exception(f"Error processing query '{question}': {str(e)}")
+            logger.exception(f"Error processing query '{query}': {str(e)}")
             # Return a properly structured error response
             return {
                 "answer": f"Error: {str(e)}",
@@ -157,7 +150,7 @@ class QAService:
     async def _get_db_data(self, question: str) -> Optional[Dict[str, Any]]:
         """Get data from database if question requires it"""
         try:
-            from app.core.service_container import ServiceContainer
+            from app.core.service_container import ServiceContainer  # Move import inside method
             container = ServiceContainer.get_instance()
             
             # Use SQLGenerator for query generation
@@ -172,7 +165,7 @@ class QAService:
             logger.info(f"Generated SQL query: {sql_query}")
             db_service = container.db_service
             results = await db_service.execute_query(sql_query)
-            logger.info(f"Results: {results}")
+            logger.info(f"Results from DB: {results}")
             return {
                 "sql_query": sql_query,
                 "results": results

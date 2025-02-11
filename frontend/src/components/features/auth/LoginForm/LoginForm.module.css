@@ -1,0 +1,38 @@
+.authContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 120px); /* Account for header and footer */
+    padding: 2rem;
+    background-color: #121212;
+}
+
+.authForm {
+    background: #1a1a1a;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.authForm h2 {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: #e0e0e0;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1rem 0;
+    color: #e0e0e0;
+    cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #2c5282;
+} 

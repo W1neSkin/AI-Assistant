@@ -1,12 +1,11 @@
 from app.utils.logger import setup_logger
 from app.core.config import settings
 import requests
-from typing import Optional
 
 logger = setup_logger(__name__)
 
 class LocalLLM:
-    def __init__(self, base_url: str = "http://ollama:11434", model_name: str = settings.LLM_MODEL_NAME):
+    def __init__(self, base_url: str = "http://ollama:11434", model_name: str = settings.LLM_LOCAL_MODEL):
         self.base_url = base_url
         self.model_name = model_name
         self.initialized = False

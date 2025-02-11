@@ -1,4 +1,3 @@
-from typing import Optional
 from app.models.settings import UserSettings
 from app.utils.logger import setup_logger
 

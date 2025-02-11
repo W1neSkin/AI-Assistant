@@ -9,7 +9,6 @@ from app.api.qa import router as qa_router
 from app.api.system import router as system_router
 from app.utils.logger import setup_logger
 from app.core.service_container import ServiceContainer
-from app.api import documents
 from contextlib import asynccontextmanager
 from app.core.init_db import init_db
 from app.db.base import get_db, create_tables

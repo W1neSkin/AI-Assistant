@@ -1,5 +1,4 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from typing import List
 from app.core.config import settings
 from app.services.index_service import LlamaIndexService
 from app.utils.validators import FileValidator

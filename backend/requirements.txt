@@ -46,3 +46,6 @@ python-multipart
 
 # Environment variables
 python-dotenv
+
+# Documents handling
+docx2txt

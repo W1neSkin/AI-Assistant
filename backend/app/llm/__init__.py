@@ -1,5 +1,5 @@
 from .local_llm import LocalLLM
-from .openai_llm import OpenAILLM
+from .cloud_llm import CloudLLM
 from .factory import create_llm
 
-__all__ = ['LocalLLM', 'OpenAILLM', 'create_llm'] 
+__all__ = ['LocalLLM', 'CloudLLM', 'create_llm'] 

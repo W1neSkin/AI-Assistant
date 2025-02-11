@@ -1,21 +1,21 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Set, Literal
+from typing import Set
 
 class Settings(BaseSettings):
+    PROJECT_NAME: str = "AI Assistant API"
+    
     # LLM Settings
     LLM_PROVIDER: str = "local"
-    OPENAI_API_KEY: str = Field("", description="OpenAI API Key")
-    OPENAI_MODEL: str = Field("gpt-3.5-turbo", description="OpenAI Model to use")
-    DEEPSEEK_API_KEY: str = Field("", description="DeepSeek API Key")
-    DEEPSEEK_MODEL: str = Field("deepseek/deepseek-r1:free", description="DeepSeek Model to use")
+    LLM_API_KEY: str = Field("", description="LLM API Key")
+    LLM_MODEL: str = Field("google/gemini-2.0-flash-001", description="LLM Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
     MAX_TOKENS: int = 6144
     LLM_MODEL_PATH: str = Field(
         "/app/storage/models/llm/mistral.gguf",
         description="Path to local LLM model file"
     )
-    LLM_MODEL_NAME: str = "deepseek-r1:7b"
+    LLM_LOCAL_MODEL: str = Field("deepseek-r1:7b", description="Local LLM model name")
     
     # Search Settings
     DEFAULT_INCLUDE_DOCS: bool = Field(True, description="Include document search by default")

@@ -17,7 +17,7 @@ export interface Document {
 }
 
 export interface UserSettings {
-    use_openai: boolean;
+    use_cloud: boolean;
     enable_document_search: boolean;
     handle_urls: boolean;
     check_db: boolean;

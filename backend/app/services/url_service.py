@@ -1,8 +1,7 @@
 import re
 import aiohttp
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, List
 from bs4 import BeautifulSoup
-from app.utils.cache import QueryCache
 from urllib.parse import urlparse
 from app.utils.logger import setup_logger
 

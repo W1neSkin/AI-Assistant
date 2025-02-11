@@ -1,7 +1,6 @@
-from typing import Dict, Any, Optional, Literal
-from app.llm.factory import create_llm
-from app.llm.openai_llm import OpenAILLM
+from app.llm.cloud_llm import CloudLLM
 from app.llm.local_llm import LocalLLM
+from app.llm.base_llm import BaseLLM
 from app.core.config import settings
 from app.utils.logger import setup_logger
 
@@ -16,33 +15,28 @@ class LLMService:
     async def initialize(self):
         """Initialize LLM providers"""
         try:
-            # Initialize OpenAI provider
-            self.providers["openai"] = OpenAILLM()
-            await self.providers["openai"].initialize()
+            # Initialize cloud provider
+            self.providers["cloud"] = CloudLLM()
+            await self.providers["cloud"].initialize()
             
             # Initialize local provider
             self.providers["local"] = LocalLLM()
             await self.providers["local"].initialize()
             
             # Set default provider using the backing attribute
-            self._current_provider = "local"
-            self.initialized = True
-            logger.info(f"LLM Service initialized with default provider: {self._current_provider}")
+            self._current_provider = settings.LLM_PROVIDER
+            logger.info(f"Using {self._current_provider} as default LLM provider")
             
         except Exception as e:
             logger.error(f"Error initializing LLM service: {str(e)}")
             raise
             
     async def change_provider(self, provider: str):
-        """Change the current LLM provider"""
-        logger.info(f"Attempting to change provider from {self.current_provider} to {provider}")
-
+        """Change LLM provider"""
         if provider not in self.providers:
-            logger.error(f"Invalid provider requested: {provider}. Available providers: {list(self.providers.keys())}")
-            raise ValueError(f"Unknown provider: {provider}")
-
+            raise ValueError(f"Invalid provider: {provider}")
         self._current_provider = provider
-        logger.info(f"Successfully changed provider to {provider}")
+        logger.info(f"Switched to {provider} provider")
         
     async def generate_answer(self, prompt: str) -> str:
         """Generate answer using current provider"""
@@ -89,7 +83,7 @@ class LLMService:
         """
         
         logger.info(f"Checking if question needs DB: '{question}'")
-        model = self._get_current_model()
+        model = self.get_provider()
         try:
             logger.info(f"Generating answer for DB determination: {prompt}")
             response = await model.generate_answer(prompt)
@@ -114,16 +108,14 @@ class LLMService:
             Generate a SQL query for this question:
             {question}
             """
-            model = self._get_current_model()
+            model = self.get_provider()
             return await model.generate_answer(prompt)
         except Exception as e:
             logger.error(f"Error generating SQL: {str(e)}")
             raise
 
-    def _get_current_model(self):
-        """Get current LLM model instance"""
-        if self.current_provider == "openai":
-            if not self.providers.get("openai"):
-                raise ValueError("OpenAI model not initialized")
-            return self.providers["openai"]
+    def get_provider(self) -> BaseLLM:
+        """Get current LLM provider instance"""
+        if self._current_provider == "cloud":
+            return self.providers["cloud"]
         return self.providers[self.current_provider] 

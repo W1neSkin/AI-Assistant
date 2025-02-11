@@ -1,35 +1,32 @@
-from llama_index.llms.openrouter import OpenRouter
-from llama_index.core.llms import ChatMessage
-
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI
 from app.core.config import settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-class OpenAILLM:
+class CloudLLM:
     def __init__(self):
         self.client = AsyncOpenAI(
-            api_key=settings.DEEPSEEK_API_KEY,
+            api_key=settings.LLM_API_KEY,
             base_url="https://openrouter.ai/api/v1"
         )
-        self.model = settings.DEEPSEEK_MODEL
+        self.model = settings.LLM_MODEL
 
     async def initialize(self):
-        """Initialize OpenAI client"""
+        """Initialize cloud LLM client"""
         try:
-            logger.info(f"Initializing OpenAI LLM with model: {settings.DEEPSEEK_MODEL}")
+            logger.info(f"Initializing cloud LLM with model: {settings.LLM_MODEL}")
             # Test connection by listing models
             # await self.client.models.list()
-            logger.info("OpenAI LLM initialized successfully")
+            logger.info("Cloud LLM initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize OpenAI LLM: {str(e)}")
+            logger.error(f"Failed to initialize Cloud LLM: {str(e)}")
             raise
 
     async def generate_answer(self, prompt: str) -> str:
-        """Generate answer using OpenAI API."""
+        """Generate answer using Cloud API."""
         try:
-            logger.info(f"Generating answer with OpenAI model: {self.model}")
+            logger.info(f"Generating answer with cloud model: {self.model}")
             try:
                 response = await self.client.chat.completions.create(
                     model=self.model,
@@ -42,14 +39,14 @@ class OpenAILLM:
                 )
                 
                 if not response or not response.choices:
-                    logger.error("Empty response from OpenAI API")
+                    logger.error("Empty response from Cloud API")
                     raise ValueError("Empty response from API")
                     
                 return response.choices[0].message.content.strip()
             except Exception as api_error:
-                logger.error(f"OpenAI API error: {str(api_error)}")
+                logger.error(f"Cloud API error: {str(api_error)}")
                 raise
             
         except Exception as e:
-            logger.error(f"Error generating answer with OpenAI: {str(e)}")
+            logger.error(f"Error generating answer with Cloud: {str(e)}")
             raise 

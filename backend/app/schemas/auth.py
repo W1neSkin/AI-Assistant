@@ -9,7 +9,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     confirm_password: str
-    use_openai: bool = False
+    use_cloudi: bool = False
     enable_document_search: bool = False
     handle_urls: bool = False
     check_db: bool = False

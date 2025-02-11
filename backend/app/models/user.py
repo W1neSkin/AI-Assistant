@@ -9,7 +9,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     
     # User-specific settings
-    use_openai = Column(Boolean, default=False)
+    use_cloud = Column(Boolean, default=False)
     enable_document_search = Column(Boolean, default=False)
     handle_urls = Column(Boolean, default=False)
     check_db = Column(Boolean, default=False) 

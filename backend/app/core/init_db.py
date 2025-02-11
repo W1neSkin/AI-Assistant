@@ -19,7 +19,7 @@ async def init_db(db: AsyncSession) -> None:
             admin_user = User(
                 username="admin",
                 hashed_password=get_password_hash("admin"),  # Change this password in production!
-                use_openai=True,
+                use_cloud=True,
                 enable_document_search=True,
                 handle_urls=True,
                 check_db=True

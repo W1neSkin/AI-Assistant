@@ -1,0 +1,43 @@
+.searchBox {
+    margin-bottom: 1rem;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 1rem;
+}
+
+.documentList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.documentList:empty::after {
+    content: 'No documents found';
+    text-align: center;
+    color: #a0aec0;
+    padding: 2rem;
+}
+
+.documentList::-webkit-scrollbar {
+    width: 8px;
+}
+
+.documentList::-webkit-scrollbar-track {
+    background: #2d3748;
+    border-radius: 4px;
+}
+
+.documentList::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+.documentList::-webkit-scrollbar-thumb:hover {
+    background: #718096;
+} 

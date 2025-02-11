@@ -1,6 +1,16 @@
-import { API_BASE_URL } from '../config';
+const BASE_URL = process.env.REACT_APP_API_URL || (
+    process.env.NODE_ENV === 'production' 
+        ? 'https://api.yourdomain.com' 
+        : 'http://localhost:8000'
+);
 
 export class ApiClient {
+    private baseUrl: string;
+
+    constructor(baseUrl: string) {
+        this.baseUrl = baseUrl;
+    }
+
     private getHeaders(): HeadersInit {
         const token = localStorage.getItem('access_token');
         const headers: Record<string, string> = {
@@ -12,31 +22,44 @@ export class ApiClient {
         return headers;
     }
 
-    async get<T>(path: string): Promise<T> {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
-            headers: this.getHeaders(),
+    private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+        const token = localStorage.getItem('access_token');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+            ...options.headers,
+        };
+
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers,
         });
+
         if (!response.ok) {
-            throw new Error('API request failed');
+            if (response.status === 401) {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+                throw new Error('Session expired');
+            }
+            throw await response.json();
         }
+
         return response.json();
+    }
+
+    async get<T>(path: string): Promise<T> {
+        return this.request<T>(path);
     }
 
     async post<T>(path: string, data?: any): Promise<T> {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        return this.request<T>(path, {
             method: 'POST',
-            headers: this.getHeaders(),
-            body: data ? JSON.stringify(data) : undefined,
+            body: data ? JSON.stringify(data) : undefined
         });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'API request failed');
-        }
-        return response.json();
     }
 
     async patch(path: string, data?: any) {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        const response = await fetch(`${this.baseUrl}${path}`, {
             method: 'PATCH',
             headers: this.getHeaders(),
             body: data ? JSON.stringify(data) : undefined,
@@ -46,7 +69,7 @@ export class ApiClient {
     }
 
     async delete(path: string): Promise<void> {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        const response = await fetch(`${this.baseUrl}${path}`, {
             method: 'DELETE',
             headers: this.getHeaders(),
         });
@@ -62,7 +85,7 @@ export class ApiClient {
             headers['Authorization'] = `Bearer ${token}`;
         }
         
-        const response = await fetch(`${API_BASE_URL}${path}`, {
+        const response = await fetch(`${this.baseUrl}${path}`, {
             method: 'POST',
             headers,
             body: formData,
@@ -75,4 +98,4 @@ export class ApiClient {
     // Add other methods as needed (PUT, DELETE, etc.)
 }
 
-export const apiClient = new ApiClient(); 
+export const apiClient = new ApiClient(BASE_URL); 

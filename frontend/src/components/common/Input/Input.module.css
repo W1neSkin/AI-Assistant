@@ -1,0 +1,33 @@
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.label {
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+.input {
+    padding: 0.75rem;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    font-size: 1rem;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #2c5282;
+}
+
+.input.error {
+    border-color: #fc8181;
+}
+
+.errorMessage {
+    color: #fc8181;
+    font-size: 0.85rem;
+} 

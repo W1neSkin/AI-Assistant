@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import List
 from app.utils.exceptions import SQLGenerationError
 from app.utils.cache import QueryCache
 from app.utils.query_optimizer import QueryOptimizer
@@ -152,53 +152,43 @@ class SQLGenerator:
 
         return "\n".join(examples) if examples else "-- No specific examples needed for this query type"
 
-    async def generate_query(self, question: str) -> Dict[str, Any]:
-        """Generate SQL query from natural language question with caching"""
-        try:
-            if not self.llm_service:
-                await self.initialize()
+    async def generate_query(self, question: str) -> str:
+        """Generate SQL query from natural language question"""
+        logger.info(f"Generating SQL query for question: {question}")
+        
+        prompt = f"""
+        Given the following database schema:
+        {self.schema}
 
-            cache_key = self._generate_cache_key(question)
-            
-            # Check cache first
-            cached_query = await self.cache.get(cache_key)
-            if cached_query:
-                return cached_query
+        And this question:
+        {question}
 
-            prompt = f"""
-            Given the following database schema:
-            {self.schema}
-            
-            Generate a SQL query for this question:
-            {question}
-            
-            Rules:
-            - Use proper PostgreSQL syntax
-            - Only use schema tables/columns
-            - Use single quotes for strings
-            - Add LIMIT 1000
-            - Handle NULLs with COALESCE
-            - Return ONLY the SQL query, no explanations or notes
-            
-            SQL Query:
-            """
-            
-            response = await self.llm_service.generate_answer(prompt)
-            sql_query = response["answer"] if isinstance(response, dict) else response
-            
-            # Extract only the SQL query, removing any comments or notes
-            sql_lines = sql_query.strip().split('\n')
-            cleaned_sql = '\n'.join(
-                line for line in sql_lines 
-                if not line.strip().startswith('--') 
-                and not line.lower().startswith('note:')
-            ).strip()
-            
-            # Cache the result
-            await self.cache.set(cache_key, cleaned_sql)
-            
-            return cleaned_sql
+        Write a SQL query that answers this question.
+        Rules:
+        1. IMPORTANT: Return ONLY the SQL query - no explanations, no thinking steps, no markdown
+        2. ONLY use SELECT statements - no ALTER, DROP, DELETE, UPDATE, INSERT, or other modifying statements
+        3. Be safe and properly formatted
+        4. Use explicit column names (no SELECT *)
+        5. Include necessary JOINs and WHERE clauses
+        6. Return only the data needed to answer the question
+        7. Use proper SQL injection prevention practices
+        8. Keep the query simple and efficient
 
-        except Exception as e:
-            logger.error(f"Error generating SQL query for question '{question}': {str(e)}")
-            raise SQLGenerationError(f"Failed to generate SQL: {str(e)}") 
+        Format your response as a raw SQL query without any additional text or formatting.
+        BAD: "Here's the query: SELECT..."
+        BAD: ```sql SELECT...```
+        GOOD: SELECT...
+        """
+
+        response = await self.llm_service.generate_answer(prompt)
+        # Remove any markdown code blocks or explanatory text
+        query = response.replace('```sql', '').replace('```', '').strip()
+        # Remove any "here's the query:" type prefixes
+        query = re.sub(r'^.*?SELECT', 'SELECT', query, flags=re.DOTALL)
+        
+        # Basic validation
+        if not query.lower().startswith('select'):
+            logger.error(f"Invalid query generated - does not start with SELECT: {query}")
+            raise ValueError("Generated query must start with SELECT")
+        
+        return query 

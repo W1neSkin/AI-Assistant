@@ -14,7 +14,7 @@ interface SettingsState extends UserSettings {
 
 const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
     const [settings, setSettings] = useState<SettingsState>({
-        use_openai: false,
+        use_cloud: false,
         enable_document_search: false,
         handle_urls: false,
         check_db: false
@@ -63,11 +63,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                     <label>
                         <input
                             type="checkbox"
-                            checked={settings.use_openai}
-                            onChange={(e) => setSettings((s: SettingsState) => ({...s, use_openai: e.target.checked}))}
+                            checked={settings.use_cloud}
+                            onChange={(e) => setSettings((s: SettingsState) => ({...s, use_cloud: e.target.checked}))}
                             disabled={loading}
                         />
-                        Use OpenAI Model
+                        Use Cloud Model
                     </label>
                 </div>
                 <div className={styles.settingItem}>

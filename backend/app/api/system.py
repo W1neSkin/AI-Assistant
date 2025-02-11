@@ -6,7 +6,7 @@ from app.utils.logger import setup_logger
 
 class ModelType(str, Enum):
     LOCAL = "local"
-    OPENAI = "openai"
+    CLOUD = "cloud"
 
 logger = setup_logger(__name__)
 
@@ -32,7 +32,7 @@ async def switch_provider(
     payload: dict = Body(...),
     services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
-    """Switch LLM provider between local and OpenAI"""
+    """Switch LLM provider between local and cloud"""
     try:
         logger.debug(f"Received switch provider request: {payload}")
         provider = payload.get("provider")
