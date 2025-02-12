@@ -28,10 +28,16 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
 
     const fetchDocuments = async () => {
         try {
-            const data = await apiClient.get<Document[]>('/api/documents');
-            setDocuments(data);
+            const data = await apiClient.getDocuments();
+            if (Array.isArray(data)) {
+                setDocuments(data);
+            } else {
+                console.error('Invalid response format:', data);
+                setDocuments([]);
+            }
         } catch (err) {
             handleApiError(err);
+            setDocuments([]);
         }
     };
 
@@ -41,9 +47,7 @@ const DocumentsModal: React.FC<DocumentsModalProps> = ({ isOpen, onClose, onUplo
 
         try {
             setUploading(true);
-            const formData = new FormData();
-            formData.append('file', file);
-            await apiClient.upload('/api/upload', formData);
+            await apiClient.uploadDocument(file);
             await fetchDocuments();
             onUploadComplete();
         } catch (err) {

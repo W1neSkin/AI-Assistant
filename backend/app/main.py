@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
         
         # Initialize other services
         try:
-            await service_container.initialize()
+            await ServiceContainer.get_instance()
         except Exception as e:
             logger.error(f"Failed to initialize services: {str(e)}")
             raise
@@ -38,7 +38,6 @@ async def lifespan(app: FastAPI):
             await db.close()
 
 app = FastAPI(title="Document Q&A Bot", lifespan=lifespan)
-service_container = ServiceContainer.get_instance()
 
 # CORS middleware
 app.add_middleware(
@@ -60,10 +59,6 @@ async def log_requests(request: Request, call_next):
 async def root():
     """Root endpoint to verify server is running."""
     return {"status": "running", "api_version": "1.2.0"}
-
-# Initialize services
-llama_service = LlamaIndexService()
-local_llm = LocalLLM(base_url="http://ollama:11434")
 
 # Include routers
 app.include_router(health_router, prefix="/api", tags=["health"])

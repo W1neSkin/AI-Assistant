@@ -18,7 +18,7 @@ async def test_document_upload(initialized_app: TestClient, auth_headers: Dict):
 @pytest.mark.asyncio
 async def test_document_list(initialized_app: TestClient, auth_headers: Dict):
     response = initialized_app.get(
-        "/api/documents",
+        "/api/documents/list",
         headers=auth_headers
     )
     

@@ -15,6 +15,13 @@ logger = setup_logger(__name__)
 class ServiceContainer:
     _instance = None
     
+    @classmethod
+    async def get_instance(cls):
+        if not cls._instance:
+            cls._instance = ServiceContainer()
+            await cls._instance.initialize()
+        return cls._instance
+
     def __init__(self):
         self.llm_service = None
         self.db_service = None
@@ -26,12 +33,6 @@ class ServiceContainer:
         self.qa_service = None
         self.settings_service = None
         self._initialized = False
-
-    @classmethod
-    def get_instance(cls):
-        if not cls._instance:
-            cls._instance = ServiceContainer()
-        return cls._instance
 
     async def initialize(self):
         """Initialize all services"""

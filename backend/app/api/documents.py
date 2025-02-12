@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from app.core.service_container import ServiceContainer
 from app.utils.logger import setup_logger
+from app.auth.deps import get_current_user
 
 router = APIRouter()
 file_validator = FileValidator(settings.ALLOWED_EXTENSIONS, settings.MAX_FILE_SIZE)
@@ -21,15 +22,11 @@ class DocumentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-async def get_index_service() -> LlamaIndexService:
-    service = LlamaIndexService()
-    await service.initialize()
-    return service
-
-@router.post("/upload")
+@router.post("/documents/upload")
 async def upload_document(
-    file: UploadFile = File(...),
-    index_service: LlamaIndexService = Depends(get_index_service)
+    file: UploadFile,
+    current_user: str = Depends(get_current_user),
+    services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
     """Upload and index a document."""
     try:
@@ -40,34 +37,29 @@ async def upload_document(
         
         logger.debug("File validation passed, indexing document")
         # Index document
-        await index_service.index_document(content, file.filename)
+        doc_id = await services.index_service.index_document(
+            content=content,
+            filename=file.filename,
+            user_id=str(current_user.id)
+        )
         
         logger.debug("Document indexed successfully")
-        return JSONResponse(
-            content={
-                "status": "success",
-                "message": f"File {file.filename} uploaded and indexed successfully",
-                "filename": file.filename
-            },
-            status_code=200
-        )
+        return {"id": doc_id}
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/documents")
-async def get_documents(
+@router.get("/documents/list")
+async def list_documents(
+    current_user: str = Depends(get_current_user),
     services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
     """Get list of all documents"""
     try:
-        if not services.is_initialized():
-            raise HTTPException(500, "Services not initialized")
-            
-        documents = await services.index_service.get_documents()
-        logger.info(f"Retrieved {len(documents)} documents")
-        return [DocumentResponse(**doc) for doc in documents]
+        docs = await services.index_service.get_user_documents(str(current_user.id))
+        logger.info(f"Retrieved {len(docs)} documents")
+        return docs
     except Exception as e:
         logger.error(f"Error getting documents: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -75,11 +67,12 @@ async def get_documents(
 @router.delete("/documents/{doc_id}")
 async def delete_document(
     doc_id: str,
+    current_user: str = Depends(get_current_user),
     services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
     """Delete a specific document"""
     try:
-        await services.index_service.delete_document(doc_id)
+        await services.index_service.delete_document(doc_id, str(current_user.id))
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error deleting document: {str(e)}")
@@ -87,11 +80,12 @@ async def delete_document(
 
 @router.delete("/documents/clear")
 async def clear_documents(
+    current_user: str = Depends(get_current_user),
     services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
-    """Clear all documents"""
+    """Clear all documents for current user"""
     try:
-        await services.index_service.clear_all_data()
+        await services.index_service.clear_user_documents(str(current_user.id))
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error clearing documents: {str(e)}")
@@ -100,12 +94,13 @@ async def clear_documents(
 @router.patch("/documents/{doc_id}")
 async def update_document_status(
     doc_id: str,
-    active: bool,
+    status: DocumentStatus,
     services: ServiceContainer = Depends(ServiceContainer.get_instance)
 ):
     """Update document active status"""
+    logger.debug(f"Updating document status for {doc_id} to {status.active}")
     try:
-        await services.index_service.update_document_status(doc_id, active)
+        await services.index_service.update_document_status(doc_id, status.active)
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Error updating document status: {str(e)}")

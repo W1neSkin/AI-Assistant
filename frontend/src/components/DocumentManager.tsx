@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { API_BASE_URL } from '../config';
-
-interface Document {
-    id: string;
-    filename: string;
-    active: boolean;
-}
+import { apiClient } from '../services/api';
+import { Document } from '../services/api';  // Import Document type from API service
 
 const DocumentManager: React.FC = () => {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -15,14 +10,8 @@ const DocumentManager: React.FC = () => {
     const fetchDocuments = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE_URL}/documents`);
-            if (response.ok) {
-                const data = await response.json();
-                setDocuments(data);
-            } else {
-                const error = await response.json();
-                toast.error(error.detail || 'Failed to fetch documents');
-            }
+            const docs = await apiClient.getDocuments();
+            setDocuments(docs);
         } catch (error) {
             console.error('Error fetching documents:', error);
             toast.error('Failed to fetch documents');
@@ -34,17 +23,9 @@ const DocumentManager: React.FC = () => {
     const handleDeleteAll = async () => {
         if (window.confirm('Are you sure you want to delete all documents? This action cannot be undone.')) {
             try {
-                const response = await fetch(`${API_BASE_URL}/documents/all`, {
-                    method: 'DELETE',
-                });
-                
-                if (response.ok) {
-                    await fetchDocuments();
-                    toast.success('All documents deleted successfully');
-                } else {
-                    const error = await response.json();
-                    toast.error(error.detail || 'Failed to delete documents');
-                }
+                await apiClient.clearDocuments();
+                await fetchDocuments();
+                toast.success('All documents deleted successfully');
             } catch (error) {
                 console.error('Error deleting documents:', error);
                 toast.error('Failed to delete documents');

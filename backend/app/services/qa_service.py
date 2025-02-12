@@ -80,7 +80,7 @@ class QAService:
             if user.enable_document_search:
                 logger.info("Searching document context...")
                 try:
-                    doc_data = await self._get_document_data(query)
+                    doc_data = await self._get_document_data(query, str(user.id))
                     if doc_data:
                         context = await self._build_context(doc_data, None, None)
                         source_nodes = doc_data['source_nodes']
@@ -176,10 +176,10 @@ class QAService:
             logger.error(f"Error getting DB data: {str(e)}")
             return None
 
-    async def _get_document_data(self, question: str) -> Optional[Dict]:
+    async def _get_document_data(self, question: str, user_id: str) -> Optional[Dict]:
         """Get relevant document data if available"""
         try:
-            results = await self.index_service.query(question)
+            results = await self.index_service.query(question, user_id)
             if results and len(results) > 0:
                 return {
                     "source_nodes": results  # Results already have the right structure

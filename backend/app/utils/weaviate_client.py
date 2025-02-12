@@ -27,7 +27,10 @@ async def create_vector_store():
                     Property(name="filename", data_type=DataType.TEXT),
                     Property(name="doc_id", data_type=DataType.TEXT),
                     Property(name="chunk_id", data_type=DataType.INT),
-                    Property(name="active", data_type=DataType.TEXT)
+                    Property(name="active", data_type=DataType.TEXT),
+                    Property(name="users", data_type=DataType.TEXT_ARRAY),  # Add users array
+                    Property(name="file_size", data_type=DataType.INT),  # For document uniqueness
+                    Property(name="total_chunks", data_type=DataType.INT)  # For document reconstruction
                 ],
                 vectorizer_config=Configure.Vectorizer.none(),  # We provide our own vectors
                 vector_index_config=Configure.VectorIndex.hnsw(

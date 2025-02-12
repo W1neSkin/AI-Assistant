@@ -4,6 +4,12 @@ const BASE_URL = process.env.REACT_APP_API_URL || (
         : 'http://localhost:8000'
 );
 
+export interface Document {
+    id: string;
+    filename: string;
+    active: boolean;
+}
+
 export class ApiClient {
     private baseUrl: string;
 
@@ -93,6 +99,30 @@ export class ApiClient {
         if (!response.ok) {
             throw new Error('Upload failed');
         }
+    }
+
+    // Document management
+    async getDocuments(): Promise<Document[]> {
+        const response = await this.get<Document[]>('/api/documents/list');
+        return response;
+    }
+
+    async deleteDocument(docId: string): Promise<void> {
+        await this.delete(`/api/documents/${docId}`);
+    }
+
+    async clearDocuments(): Promise<void> {
+        await this.delete('/api/documents/clear');
+    }
+
+    async updateDocumentStatus(docId: string, active: boolean): Promise<void> {
+        await this.patch(`/api/documents/${docId}`, { active });
+    }
+
+    async uploadDocument(file: File): Promise<void> {
+        const formData = new FormData();
+        formData.append('file', file);
+        await this.upload('/api/documents/upload', formData);
     }
 
     // Add other methods as needed (PUT, DELETE, etc.)

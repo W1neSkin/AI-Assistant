@@ -13,9 +13,10 @@ from app.utils.document_utils import extract_text_from_pdf, extract_text_from_do
 import uuid
 from typing import List, Dict, Any, Optional
 import backoff
-from llama_index.core.vector_stores import VectorStoreQuery, MetadataFilters, ExactMatchFilter
+from llama_index.core.vector_stores import VectorStoreQuery, MetadataFilters, MetadataFilter, ExactMatchFilter
 from llama_index.core.vector_stores.types import VectorStoreQueryMode
 from weaviate.classes.query import Filter
+import hashlib
 
 logger = setup_logger(__name__)
 
@@ -26,20 +27,31 @@ logger = setup_logger(__name__)
     max_time=30
 )
 def create_embedding_model():
-    return HuggingFaceEmbedding(
+    logger.info("Creating embedding model...")
+    model = HuggingFaceEmbedding(
         model_name="BAAI/bge-small-en",
         cache_folder="/app/storage/models/embeddings"
     )
+    logger.info("Embedding model created successfully")
+    return model
+
 
 class LlamaIndexService:
     def __init__(self):
+        logger.info("Initializing LlamaIndexService...")
         self.vector_store = None
         self.index = None
-        # The embedding model is used here to convert document text into vectors
+        logger.info("Creating embedding model instance...")
         self.embed_model = create_embedding_model()
-        self.node_parser = SimpleNodeParser.from_defaults()
+        logger.debug(f"Embedding model created: {self.embed_model}")
+        
+        self.node_parser = SimpleNodeParser.from_defaults(
+            chunk_size=512,
+            chunk_overlap=50
+        )
         Settings.embed_model = self.embed_model
         Settings.node_parser = self.node_parser
+        logger.info("LlamaIndexService initialization complete")
 
     async def initialize(self):
         # Get pre-configured vector store
@@ -49,178 +61,85 @@ class LlamaIndexService:
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex([], storage_context=storage_context)
 
-    async def index_document(self, content: bytes, filename: str) -> None:
-        """Index a document"""
+    async def index_document(self, content: bytes, filename: str, user_id: str):
+        """Index document with chunking and user tracking"""
         try:
-            logger.debug(f"Starting document indexing for {filename}")
-            # Handle different file types
-            if filename.lower().endswith('.pdf'):
-                text = extract_text_from_pdf(content)
-            elif filename.lower().endswith('.docx'):
-                text = extract_text_from_docx(content)
-            else:
-                text = content.decode('utf-8')
-
-            # Generate unique document ID
-            doc_id = str(uuid.uuid4())
+            # Generate document ID
+            file_size = len(content)
+            doc_id = self._generate_doc_id(filename, file_size)
             
-            # Split text into chunks
-            chunks = chunk_text(text)
-            logger.debug(f"Created {len(chunks)} chunks from document")
+            # Check if document exists
+            existing_doc = await self._get_document_by_id(doc_id)
+            if existing_doc:
+                # Just add user to the users list if document exists
+                await self._add_user_to_document(doc_id, user_id)
+                return doc_id
             
-            # Create TextNode objects with metadata
-            nodes = [
-                TextNode(
-                    text=chunk,
-                    metadata={
-                        "doc_id": doc_id,
-                        "filename": filename,
-                        "active": "true",
-                        "chunk_id": i
-                    },
-                    embedding=self.embed_model.get_text_embedding(chunk)
-                )
-                for i, chunk in enumerate(chunks)
-            ]
+            # Extract text from content
+            text = self._extract_text(content, filename)
             
-            # Store nodes in vector store
-            self.vector_store.add(nodes)
+            # Create document and split into chunks
+            doc = Document(text=text)
+            nodes = self.node_parser.get_nodes_from_documents([doc])
             
-            logger.info(f"Indexed {len(chunks)} chunks for {filename} with ID {doc_id}")
+            # Add metadata to each chunk
+            total_chunks = len(nodes)
+            for i, node in enumerate(nodes):
+                node.metadata.update({
+                    "doc_id": doc_id,
+                    "search_id": doc_id,
+                    "filename": filename,
+                    "chunk_id": i,
+                    "total_chunks": total_chunks,
+                    "file_size": file_size,
+                    "users": [user_id],
+                    "active": "true"
+                })
+            
+            # Index all chunks
+            await self._add_nodes(nodes)
+            return doc_id
+            
         except Exception as e:
             logger.error(f"Error indexing document: {str(e)}")
             raise
 
-    async def query_index(self, query: str, max_results: int = 3) -> Dict[str, Any]:
+    async def query(self, question: str, user_id: str, max_results: int = 5, hybrid: bool = False) -> List[Dict]:
+        """Query documents with user filter"""
         try:
-            query_embedding = self.embed_model.get_text_embedding(query)
+            query_embedding = self.embed_model.get_text_embedding(question)
             
-            # Use vector store's query method
+            # Add filters for active documents and user access
+            filters = MetadataFilters(filters=[
+                ExactMatchFilter(key="active", value="true"),
+                MetadataFilter(key="users", value=[user_id], operator="any"),
+            ])
+            
+            # Query vector store
             query_result = self.vector_store.query(
                 VectorStoreQuery(
                     query_embedding=query_embedding,
                     similarity_top_k=max_results,
-                    filters=MetadataFilters(filters=[
-                        ExactMatchFilter(key="active", value="true")
-                    ])
-                )
-            )
-            
-            return {
-                "results": [
-                    {
-                        "text": node.text,
-                        "metadata": node.metadata,
-                        "score": score
-                    } for node, score in zip(query_result.nodes, query_result.similarities)
-                ]
-            }
-        except Exception as e:
-            logger.error(f"Query index error: {str(e)}")
-            raise
-
-    async def get_documents(self) -> List[Dict[str, Any]]:
-        """Get list of all documents with their status"""
-        try:
-            logger.debug("Attempting to fetch documents from vector store")
-            # Get all documents using vector store query
-            query_result = self.vector_store.query(
-                VectorStoreQuery(
-                    query_embedding=None,  # No query embedding needed for listing all docs
-                    similarity_top_k=1000,  # Get all documents
-                    mode=VectorStoreQueryMode.DEFAULT
-                )
-            )
-            
-            logger.debug(f"Query result: {query_result}")
-            
-            # Convert to expected format
-            documents = []
-            seen_docs = set()
-            
-            for node in query_result.nodes:
-                logger.debug(f"Processing node: {node.metadata}")
-                doc_id = node.metadata.get("doc_id")
-                if doc_id and doc_id not in seen_docs:
-                    seen_docs.add(doc_id)
-                    documents.append({
-                        "id": doc_id,
-                        "filename": node.metadata.get("filename", "unknown"),
-                        "active": node.metadata.get("active", "true") == "true"
-                    })
-            
-            logger.info(f"Retrieved {len(documents)} unique documents")
-            logger.debug(f"Final documents list: {documents}")
-            return documents
-        except Exception as e:
-            logger.error(f"Error fetching documents: {str(e)}")
-            raise
-
-    async def delete_document(self, doc_id: str) -> None:
-        """Delete a specific document and all its chunks"""
-        try:
-            # Correct deletion using official API
-            self.vector_store.delete(
-                ref_doc_id=doc_id,
-                filters=MetadataFilters(filters=[
-                    ExactMatchFilter(key="doc_id", value=doc_id)
-                ])
-            )
-            logger.info(f"Deleted document {doc_id}")
-        except Exception as e:
-            logger.error(f"Error deleting document: {str(e)}")
-            raise
-
-    async def clear_all_data(self) -> None:
-        """Delete all documents from the vector store"""
-        try:
-            # Use built-in clear method
-            self.vector_store.clear()
-            logger.info("All documents deleted")
-        except Exception as e:
-            logger.error(f"Error clearing data: {str(e)}")
-            raise
-
-    async def update_document_status(self, doc_id: str, active: bool) -> None:
-        """Update the active status of a document"""
-        try:
-            # Correct update using WeaviateVectorStore's data operations
-            collection = self.vector_store.client.collections.get("Documents")
-            result = collection.data.update_many(
-                where=Filter.by_property("doc_id").equal(doc_id),
-                properties={"active": "true"} if active else {"active": "false"}
-            )
-            logger.info(f"Updated {result} documents for {doc_id}")
-        except Exception as e:
-            logger.error(f"Error updating status: {str(e)}")
-            raise
-
-    async def query(self, question: str, top_k: int = 5, hybrid: bool = False):
-        try:
-            query_embedding = self.embed_model.get_text_embedding(question)
-            
-            # Use vector store's query method
-            query_result = self.vector_store.query(
-                query=VectorStoreQuery(
-                    query_embedding=query_embedding,
-                    similarity_top_k=top_k,
                     mode=VectorStoreQueryMode.HYBRID if hybrid else VectorStoreQueryMode.DEFAULT,
                     alpha=0.5 if hybrid else None,
-                    filters=MetadataFilters(filters=[
-                        ExactMatchFilter(key="active", value="true")
-                    ])
+                    filters=filters
                 )
             )
             
             # Process results
             results = []
+            seen_docs = set()
             for node, score in zip(query_result.nodes, query_result.similarities):
-                results.append({
-                    "text": node.text,
-                    "filename": node.metadata.get("filename", "unknown"),
-                    "similarity_score": score,
-                    "doc_id": node.metadata.get("doc_id")
-                })
+                doc_id = node.metadata.get("doc_id")
+                if doc_id not in seen_docs:
+                    seen_docs.add(doc_id)
+                    results.append({
+                        "text": node.text,
+                        "filename": node.metadata.get("filename", "unknown"),
+                        "similarity_score": score,
+                        "chunk_id": node.metadata.get("chunk_id"),
+                        "total_chunks": node.metadata.get("total_chunks")
+                    })
             
             logger.info(f"Found {len(results)} relevant documents for query '{question}'")
             return results
@@ -229,21 +148,200 @@ class LlamaIndexService:
             logger.error(f"Error performing semantic search: {str(e)}")
             raise
 
-def chunk_text(text: str, chunk_size: int = 512, overlap: int = 64) -> List[str]:
-    """Split text into chunks with overlap using proper text splitting"""
-    splitter = SentenceSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        separator=" ",
-        paragraph_separator="\n\n",
-        secondary_chunking_regex="[^,.;。]+[,.;。]?",
-    )
-    return [node.text for node in splitter.get_nodes_from_documents([Document(text=text)])] 
+    async def delete_document(self, doc_id: str, user_id: str):
+        """Remove document from user's list"""
+        doc = await self._get_document_by_id(doc_id)
+        if not doc:
+            return
+            
+        users = doc.get("users", [])
+        if user_id in users:
+            users.remove(user_id)
+            
+            if not users:
+                # No users left, delete document completely
+                await self._delete_document(doc_id)
+            else:
+                # Update users list
+                await self._update_document_users(doc_id, users)
 
-def handle_batch_errors(results: Optional[list]) -> None:
-    if not results:
-        return
-    for result in results:
-        if "errors" in result:
-            logger.error(f"Batch error: {result['errors']}")
-            raise Exception("Batch operation failed") 
+    async def get_user_documents(self, user_id: str) -> List[Dict]:
+        """Get list of user's documents"""
+        try:
+        # Query using MetadataFilters directly
+            logger.debug(f"Querying documents for user {user_id} {type(user_id)}")
+            
+            # Add filters for active documents and user access
+            filters = MetadataFilters(filters=[
+                MetadataFilter(key="users", value=[user_id], operator="any"),
+            ])
+
+            query_result = self.vector_store.query(
+                VectorStoreQuery(
+                    query_embedding=None,  # No embedding needed for listing
+                    similarity_top_k=1000,  # Get all matching documents
+                    filters=filters
+                )
+            )
+            
+            # Process results
+            documents = []
+            seen_docs = set()
+         
+            for node in query_result.nodes:
+                doc_id = node.metadata.get("doc_id")
+                if doc_id and doc_id not in seen_docs:
+                    seen_docs.add(doc_id)
+                    documents.append({
+                        "id": doc_id,
+                        "filename": node.metadata.get("filename", "unknown"),
+                        "size": node.metadata.get("file_size", 0),
+                        "active": node.metadata.get("active", "true") == "true"
+                    })
+            
+            return documents
+        except Exception as e:
+            logger.error(f"Error fetching documents: {str(e)}")
+            raise
+
+    async def update_document_status(self, doc_id: str, active: bool) -> None:
+        """Update the active status of a document"""
+        try:
+            # Get all nodes for this document
+            # metadata={'doc_id': 'c689abf2732ed2087f438d0293bbc88a', 'filename': 'aaaDA_52.doc.docx', 'chunk_id': 4, 'total_chunks': 12, 'file_size': 27688, 'users': ['1'], 'active': 'false'}
+            filters=MetadataFilters(filters=[
+                        MetadataFilter(key="search_id", value=doc_id),
+                        # MetadataFilter(key="filename", value="aaaDA_52.doc.docx"),
+                    ])
+            query_result = self.vector_store.query(
+                VectorStoreQuery(
+                    query_embedding=None,
+                    similarity_top_k=1000,
+                    filters=filters
+                )
+            )
+            
+            # Update active status in metadata
+            for node in query_result.nodes:
+                node.metadata["active"] = "true" if active else "false"
+            
+            logger.debug(f"Updated nodes: {query_result.nodes}")
+            # Update nodes in vector store
+            if query_result.nodes:
+                # Delete old nodes and add updated ones
+                self.vector_store.delete(ref_doc_id=doc_id)
+                self.vector_store.add(
+                    nodes=query_result.nodes,
+                )
+            
+            logger.info(f"Updated document status for {doc_id}")
+        except Exception as e:
+            logger.error(f"Error updating status: {str(e)}")
+            raise
+
+    async def clear_user_documents(self, user_id: str) -> None:
+        """Delete all documents for specific user"""
+        try:
+            # Get all documents for user
+            docs = await self.get_user_documents(user_id)
+            
+            # Remove user from each document
+            for doc in docs:
+                await self.delete_document(doc["id"], user_id)
+                
+            logger.info(f"Cleared all documents for user {user_id}")
+        except Exception as e:
+            logger.error(f"Error clearing user documents: {str(e)}")
+            raise
+
+    async def _get_document_by_id(self, doc_id: str) -> Optional[Dict]:
+        """Get document by ID"""
+        try:
+            # Query for document with specific doc_id
+            query_result = self.vector_store.query(
+                VectorStoreQuery(
+                    query_embedding=None,  # No embedding needed for exact match
+                    filters=MetadataFilters(filters=[
+                        ExactMatchFilter(key="doc_id", value=doc_id)
+                    ]),
+                    similarity_top_k=1  # We only need one result
+                )
+            )
+            
+            if query_result.nodes:
+                node = query_result.nodes[0]
+                return {
+                    "doc_id": node.metadata.get("doc_id"),
+                    "filename": node.metadata.get("filename"),
+                    "file_size": node.metadata.get("file_size"),
+                    "users": node.metadata.get("users", [])
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting document by ID: {str(e)}")
+            raise
+
+    async def _add_nodes(self, nodes: List[TextNode]) -> None:
+        """Add nodes to vector store"""
+        try:
+            for node in nodes:
+                node.embedding = self.embed_model.get_text_embedding(node.text)
+
+            self.vector_store.add(nodes=nodes)
+            logger.info(f"Added {len(nodes)} nodes to vector store")
+        except Exception as e:
+            logger.error(f"Error adding nodes: {str(e)}")
+            raise
+
+    async def _add_user_to_document(self, doc_id: str, user_id: str) -> None:
+        """Add user to document's users list"""
+        try:
+            # Get current document nodes
+            query_result = self.vector_store.query(
+                VectorStoreQuery(
+                    query_embedding=None,
+                    filters=MetadataFilters(filters=[
+                        ExactMatchFilter(key="doc_id", value=doc_id)
+                    ])
+                )
+            )
+            
+            if not query_result.nodes:
+                raise ValueError(f"Document {doc_id} not found")
+            
+            # Update users list in metadata
+            for node in query_result.nodes:
+                users = node.metadata.get("users", [])
+                if user_id not in users:
+                    users.append(user_id)
+                    node.metadata["users"] = users
+            
+            # Delete old nodes and add updated ones
+            self.vector_store.delete(
+                filter=MetadataFilters(filters=[
+                    ExactMatchFilter(key="doc_id", value=doc_id)
+                ])
+            )
+            self.vector_store.add(nodes=query_result.nodes)
+            
+            logger.info(f"Added user {user_id} to document {doc_id}")
+            
+        except Exception as e:
+            logger.error(f"Error adding user to document: {str(e)}")
+            raise
+
+    def _extract_text(self, content: bytes, filename: str) -> str:
+        """Extract text based on file type"""
+        if filename.lower().endswith('.pdf'):
+            return extract_text_from_pdf(content)
+        elif filename.lower().endswith('.docx'):
+            return extract_text_from_docx(content)
+        else:
+            return content.decode('utf-8')
+        
+    def _generate_doc_id(self, filename: str, file_size: int) -> str:
+        """Generate unique document ID based on filename and size"""
+        unique_str = f"{filename}:{file_size}"
+        return hashlib.md5(unique_str.encode()).hexdigest()
+    

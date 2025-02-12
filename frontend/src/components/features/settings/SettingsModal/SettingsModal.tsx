@@ -5,10 +5,6 @@ import Button from '../../../common/Button/Button';
 import { handleApiError } from '../../../../utils/errorHandler';
 import { apiClient } from '../../../../services/api';
 
-interface ApiError {
-    detail: string;
-}
-
 interface UserSettings {
     use_cloud: boolean;
     enable_document_search: boolean;

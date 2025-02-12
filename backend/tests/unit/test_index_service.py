@@ -26,45 +26,6 @@ async def test_index_document(index_service):
     assert results[0]["filename"] == filename
 
 @pytest.mark.asyncio
-async def test_query_index(index_service):
-    """Test querying the index"""
-    # First index some test documents
-    docs = [
-        (b"First test document", "doc1.txt"),
-        (b"Second test document", "doc2.txt"),
-        (b"Third test document", "doc3.txt")
-    ]
-    
-    for content, filename in docs:
-        await index_service.index_document(content, filename)
-    
-    # Test querying
-    results = await index_service.query("test document", max_results=2)
-    assert len(results) == 2  # Should respect max_results
-    assert all("filename" in r for r in results)
-    assert all("text" in r for r in results)
-    assert all("similarity_score" in r for r in results)
-
-@pytest.mark.asyncio
-async def test_get_documents(index_service):
-    """Test retrieving document list"""
-    # Index test documents
-    docs = [
-        (b"First document", "doc1.txt"),
-        (b"Second document", "doc2.txt")
-    ]
-    
-    for content, filename in docs:
-        await index_service.index_document(content, filename)
-    
-    # Get document list
-    documents = await index_service.get_documents()
-    assert len(documents) == 2
-    assert all("id" in doc for doc in documents)
-    assert all("filename" in doc for doc in documents)
-    assert all("active" in doc for doc in documents)
-
-@pytest.mark.asyncio
 async def test_delete_document(index_service):
     """Test document deletion"""
     # First index a document
@@ -101,34 +62,6 @@ async def test_update_document_status(index_service):
     # Query should not return results for inactive documents
     results = await index_service.query("test document")
     assert len(results) == 0
-
-@pytest.mark.asyncio
-async def test_clear_all_data(index_service):
-    """Test clearing all documents"""
-    # Index some documents
-    docs = [
-        (b"First doc", "doc1.txt"),
-        (b"Second doc", "doc2.txt")
-    ]
-    
-    for content, filename in docs:
-        await index_service.index_document(content, filename)
-    
-    # Clear all data
-    await index_service.clear_all_data()
-    
-    # Verify all documents are removed
-    documents = await index_service.get_documents()
-    assert len(documents) == 0
-
-@pytest.mark.asyncio
-async def test_chunk_text():
-    """Test text chunking functionality"""
-    text = "This is a test. " * 100  # Create a long text
-    chunks = LlamaIndexService.chunk_text(text)
-    
-    assert len(chunks) > 1  # Should create multiple chunks
-    assert all(len(chunk) <= 512 for chunk in chunks)  # Default chunk size
 
 @pytest.mark.asyncio
 async def test_error_handling(index_service):

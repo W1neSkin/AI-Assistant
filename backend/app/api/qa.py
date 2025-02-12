@@ -19,7 +19,7 @@ async def get_answer(
         logger.debug(f"Received question request: {query}")
         
         # 1. Get QA service from container
-        container = ServiceContainer.get_instance()     
+        container = await ServiceContainer.get_instance()     
         if not container.qa_service:
             await container.initialize()
         qa_service = container.qa_service        
