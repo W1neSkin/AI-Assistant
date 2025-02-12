@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 class LoginRequest(BaseModel):
     username: str
@@ -9,10 +9,10 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     confirm_password: str
-    use_cloudi: bool = False
-    enable_document_search: bool = False
-    handle_urls: bool = False
-    check_db: bool = False
+    use_cloud: bool = False
+    enable_document_search: bool = True
+    handle_urls: bool = True
+    check_db: bool = True
 
 class TokenResponse(BaseModel):
     access_token: str

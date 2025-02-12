@@ -95,7 +95,11 @@ WEAVIATE_URL=http://weaviate:8080
 ## Development
 
 1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
+2. Install dependencies: 
+   ```bash
+   pip install -r requirements.txt
+   pip install -r requirements-test.txt  # Install test dependencies
+   ```
 3. Set up environment variables:
    - Copy `.env.example` to `.env`
    - Add your OpenRouter API key
@@ -103,6 +107,48 @@ WEAVIATE_URL=http://weaviate:8080
    ```bash
    docker-compose up -d
    ```
+
+## Testing
+
+The project includes comprehensive test suites:
+- Unit tests
+- Integration tests
+- Vector store tests
+
+### Running Tests
+
+Use the test runner script:
+
+```bash
+# Run all tests
+python run_tests.py
+
+# Run unit tests with coverage
+python run_tests.py --type unit --coverage
+
+# Run integration tests verbosely
+python run_tests.py --type integration --verbose
+
+# Clean and run all tests with coverage
+python run_tests.py --clean --coverage
+```
+
+### Test Options
+
+- `--type`: Choose test type (`all`, `unit`, `integration`)
+- `--coverage`: Generate coverage report
+- `--verbose`: Show detailed output
+- `--clean`: Clean test artifacts before running
+
+### Test Structure
+
+```
+backend/tests/
+├── unit/               # Unit tests
+├── integration/        # Integration tests
+├── mocks/             # Mock objects
+└── test_files/        # Test data files
+```
 
 ## Production Considerations
 

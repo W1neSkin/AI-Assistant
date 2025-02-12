@@ -13,8 +13,10 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Then copy and install Python requirements
-COPY requirements.txt /app/
+COPY requirements.txt .
+COPY requirements-test.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-test.txt
 
 COPY . .
 
@@ -28,4 +30,4 @@ ENV PYTHONUNBUFFERED=1 \
 ENV PYTHONPATH=/app
 
 # Start the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
