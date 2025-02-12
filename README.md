@@ -25,6 +25,10 @@ A powerful AI assistant API that combines document search, database querying, an
   - Vector storage using Weaviate
   - Semantic search with hybrid mode support
   - Document chunking with overlap
+  - Document status management (active/inactive)
+  - Multi-user document access
+  - Document sharing capabilities
+  - Metadata-based filtering
 
 - **Database Integration**:
   - PostgreSQL database support
@@ -79,6 +83,11 @@ WEAVIATE_URL=http://weaviate:8080
 
 - `/api/chat`: Main chat endpoint
 - `/api/documents`: Document management
+  - `POST /api/documents/upload`: Upload new document
+  - `GET /api/documents/list`: List user's documents
+  - `DELETE /api/documents/{doc_id}`: Delete document
+  - `PATCH /api/documents/{doc_id}`: Update document status
+  - `DELETE /api/documents/clear`: Clear all user documents
 - `/api/system`: System settings and model switching
   - `GET /api/system/models`: List available models
   - `POST /api/system/switch-provider`: Switch between local/cloud
@@ -165,3 +174,21 @@ backend/tests/
 ## License
 
 [Your License Here]
+
+## Vector Store Schema
+```json
+{
+  "Documents": {
+    "properties": [
+      {"name": "text", "dataType": "text"},
+      {"name": "filename", "dataType": "text"},
+      {"name": "doc_id", "dataType": "text"},
+      {"name": "chunk_id", "dataType": "int"},
+      {"name": "active", "dataType": "text"},
+      {"name": "users", "dataType": "text[]"},
+      {"name": "file_size", "dataType": "int"},
+      {"name": "total_chunks", "dataType": "int"}
+    ]
+  }
+}
+```
