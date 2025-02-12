@@ -1,10 +1,11 @@
 from openai import AsyncOpenAI
 from app.core.config import settings
 from app.utils.logger import setup_logger
+from app.llm.base_llm import BaseLLM
 
 logger = setup_logger(__name__)
 
-class CloudLLM:
+class CloudLLM(BaseLLM):
     def __init__(self):
         self.client = AsyncOpenAI(
             api_key=settings.LLM_API_KEY,

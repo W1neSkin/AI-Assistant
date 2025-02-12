@@ -80,10 +80,10 @@ class QAService:
             if user.enable_document_search:
                 logger.info("Searching document context...")
                 try:
-                    search_result = await self.index_service.query(query)
-                    if search_result:
-                        context = search_result.get("context", "")
-                        source_nodes = search_result.get("source_nodes", [])
+                    doc_data = await self._get_document_data(query)
+                    if doc_data:
+                        context = await self._build_context(doc_data, None, None)
+                        source_nodes = doc_data['source_nodes']
                 except Exception as e:
                     logger.error(f"Error searching documents: {str(e)}")
             
@@ -121,14 +121,16 @@ class QAService:
             
             # Return properly structured response
             response = {
-                "answer": str(answer_text),  # Use the extracted answer text
+                "answer": str(answer_text),
                 "context": {
                     "source_nodes": [
                         {
                             "filename": str(node['filename']),
                             "text": str(node['text'])
                         }
-                        for node in (source_nodes or [])
+                        # Use a set to track seen filenames and only include first occurrence
+                        for i, node in enumerate(source_nodes or [])
+                        if node['filename'] not in {n['filename'] for n in (source_nodes or [])[:i]}
                     ],
                     "time_taken": float(time_taken)
                 }
@@ -174,6 +176,19 @@ class QAService:
             logger.error(f"Error getting DB data: {str(e)}")
             return None
 
+    async def _get_document_data(self, question: str) -> Optional[Dict]:
+        """Get relevant document data if available"""
+        try:
+            results = await self.index_service.query(question)
+            if results and len(results) > 0:
+                return {
+                    "source_nodes": results  # Results already have the right structure
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting document data: {str(e)}")
+            return None
+
     async def _build_context(
         self, 
         doc_data: Optional[Dict], 
@@ -183,7 +198,8 @@ class QAService:
         """Build context text from all available sources"""
         context_parts = []
         
-        if doc_data:
+        if doc_data and doc_data.get('source_nodes'):
+            # Access the source_nodes from the dictionary
             context_parts.append(' '.join([node['text'] for node in doc_data['source_nodes']]))
         
         if url_data:

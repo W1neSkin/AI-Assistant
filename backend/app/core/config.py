@@ -11,10 +11,6 @@ class Settings(BaseSettings):
     LLM_MODEL: str = Field("google/gemini-2.0-flash-001", description="LLM Model to use")
     TEMPERATURE: float = Field(0.7, ge=0.0, le=1.0)
     MAX_TOKENS: int = 6144
-    LLM_MODEL_PATH: str = Field(
-        "/app/storage/models/llm/mistral.gguf",
-        description="Path to local LLM model file"
-    )
     LLM_LOCAL_MODEL: str = Field("deepseek-r1:7b", description="Local LLM model name")
     
     # Search Settings
