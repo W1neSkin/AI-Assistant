@@ -208,11 +208,10 @@ class LlamaIndexService:
         """Update the active status of a document"""
         try:
             # Get all nodes for this document
-            # metadata={'doc_id': 'c689abf2732ed2087f438d0293bbc88a', 'filename': 'aaaDA_52.doc.docx', 'chunk_id': 4, 'total_chunks': 12, 'file_size': 27688, 'users': ['1'], 'active': 'false'}
             filters=MetadataFilters(filters=[
                         MetadataFilter(key="search_id", value=doc_id),
-                        # MetadataFilter(key="filename", value="aaaDA_52.doc.docx"),
                     ])
+            
             query_result = self.vector_store.query(
                 VectorStoreQuery(
                     query_embedding=None,
@@ -262,7 +261,7 @@ class LlamaIndexService:
                 VectorStoreQuery(
                     query_embedding=None,  # No embedding needed for exact match
                     filters=MetadataFilters(filters=[
-                        ExactMatchFilter(key="doc_id", value=doc_id)
+                        ExactMatchFilter(key="search_id", value=doc_id)
                     ]),
                     similarity_top_k=1  # We only need one result
                 )
@@ -302,7 +301,7 @@ class LlamaIndexService:
                 VectorStoreQuery(
                     query_embedding=None,
                     filters=MetadataFilters(filters=[
-                        ExactMatchFilter(key="doc_id", value=doc_id)
+                        ExactMatchFilter(key="search_id", value=doc_id)
                     ])
                 )
             )
@@ -320,7 +319,7 @@ class LlamaIndexService:
             # Delete old nodes and add updated ones
             self.vector_store.delete(
                 filter=MetadataFilters(filters=[
-                    ExactMatchFilter(key="doc_id", value=doc_id)
+                    ExactMatchFilter(key="search_id", value=doc_id)
                 ])
             )
             self.vector_store.add(nodes=query_result.nodes)
