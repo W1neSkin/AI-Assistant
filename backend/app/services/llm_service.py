@@ -3,6 +3,8 @@ from app.llm.local_llm import LocalLLM
 from app.llm.base_llm import BaseLLM
 from app.core.config import settings
 from app.utils.logger import setup_logger
+from app.utils.prompt_generator import PromptGenerator
+
 
 logger = setup_logger(__name__)
 
@@ -30,6 +32,11 @@ class LLMService:
         except Exception as e:
             logger.error(f"Error initializing LLM service: {str(e)}")
             raise
+
+    async def close(self):
+        """Close LLM providers"""
+        for provider in self.providers.values():
+            await provider.close()
             
     async def change_provider(self, provider: str):
         """Change LLM provider"""
@@ -60,27 +67,7 @@ class LLMService:
 
     async def is_db_question(self, question: str) -> bool:
         """Use current LLM to determine if question needs database access"""
-        prompt = f"""Analyze if this question requires database access.
-        Return ONLY 'true' or 'false' without explanation.
-        
-        Guidelines:
-        - Database is needed for questions about specific records, statistics, or data analysis
-        - Database is NOT needed for general questions or document-based queries
-        - Consider keywords like: show, find, count, list, how many, average, total
-        
-        Examples:
-        - "Show me all clients from New York" -> true (requires database)
-        - "What is machine learning?" -> false (general knowledge)
-        - "How many orders were placed last month?" -> true (requires database)
-        - "Explain the company's privacy policy" -> false (document-based)
-        
-        Question: {question}
-        
-        Think step by step:
-        1. Identify key action words
-        2. Check if question asks for specific data
-        3. Determine if answer requires stored records
-        """
+        prompt = PromptGenerator.format_prompt_for_is_question(question)
         
         logger.info(f"Checking if question needs DB: '{question}'")
         model = self.get_provider()
@@ -95,24 +82,6 @@ class LLMService:
             logger.error(f"Error determining DB need: {str(e)}")
             # Default to not using DB on error
             return False
-
-    async def generate_sql(self, question: str, schema: str) -> str:
-        """Generate SQL query using LLM"""
-        try:
-            if not self.current_provider:
-                await self.initialize()
-            prompt = f"""
-            Given this database schema:
-            {schema}
-            
-            Generate a SQL query for this question:
-            {question}
-            """
-            model = self.get_provider()
-            return await model.generate_answer(prompt)
-        except Exception as e:
-            logger.error(f"Error generating SQL: {str(e)}")
-            raise
 
     def get_provider(self) -> BaseLLM:
         """Get current LLM provider instance"""

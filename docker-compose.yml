@@ -14,6 +14,9 @@ services:
       - DEBUG_MODE=true
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - WEAVIATE_URL=http://weaviate:8080
     command: >
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -95,9 +98,9 @@ services:
     container_name: postgres
     image: postgres:16-alpine    
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-dbuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbpass}
-      POSTGRES_DB: ${POSTGRES_DB:-customerdb}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/db/init:/docker-entrypoint-initdb.d

@@ -1,5 +1,7 @@
 from redis.asyncio import Redis
+
 from app.utils.logger import setup_logger
+
 
 logger = setup_logger(__name__)
 
@@ -23,6 +25,12 @@ class CacheService:
         except Exception as e:
             logger.error(f"Failed to initialize Redis connection: {str(e)}")
             raise
+        
+    async def close(self):
+        """Close Redis connection"""
+        if self._redis:
+            await self._redis.close()
+            self._redis = None
 
     async def get(self, key: str) -> str:
         """Get value from Redis"""

@@ -1,22 +1,22 @@
+import backoff
+import hashlib
+from typing import List, Dict, Any, Optional
 from llama_index.core import (
     VectorStoreIndex,
     Document,
     Settings,
     StorageContext
 )
-from llama_index.core.node_parser import SimpleNodeParser, SentenceSplitter
+from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.core.schema import TextNode
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.vector_stores import VectorStoreQuery, MetadataFilters, MetadataFilter, ExactMatchFilter
+from llama_index.core.vector_stores.types import VectorStoreQueryMode
+
 from app.utils.weaviate_client import create_vector_store
 from app.utils.logger import setup_logger
 from app.utils.document_utils import extract_text_from_pdf, extract_text_from_docx
-import uuid
-from typing import List, Dict, Any, Optional
-import backoff
-from llama_index.core.vector_stores import VectorStoreQuery, MetadataFilters, MetadataFilter, ExactMatchFilter
-from llama_index.core.vector_stores.types import VectorStoreQueryMode
-from weaviate.classes.query import Filter
-import hashlib
+
 
 logger = setup_logger(__name__)
 
@@ -60,6 +60,11 @@ class LlamaIndexService:
         # Create storage context and index
         storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         self.index = VectorStoreIndex([], storage_context=storage_context)
+
+    async def close(self):
+        """Close vector store"""
+        if self.vector_store.client:
+            self.vector_store.client.close()
 
     async def index_document(self, content: bytes, filename: str, user_id: str):
         """Index document with chunking and user tracking"""

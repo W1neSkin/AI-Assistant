@@ -4,6 +4,7 @@ import json
 import hashlib
 from app.utils.logger import setup_logger
 
+
 logger = setup_logger(__name__)
 
 class QueryCache:

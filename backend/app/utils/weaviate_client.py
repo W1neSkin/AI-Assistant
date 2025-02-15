@@ -1,9 +1,11 @@
 import weaviate
 from weaviate.classes.config import Configure, DataType, Property
 from weaviate.classes.config import VectorDistances
+from llama_index.vector_stores.weaviate import WeaviateVectorStore
+
 from app.core.config import settings
 from app.utils.logger import setup_logger
-from llama_index.vector_stores.weaviate import WeaviateVectorStore
+
 
 logger = setup_logger(__name__)
 

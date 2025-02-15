@@ -49,3 +49,6 @@ python-dotenv
 
 # Documents handling
 docx2txt
+
+# dotenv
+python-dotenv

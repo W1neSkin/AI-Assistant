@@ -1,8 +1,10 @@
-from typing import Dict, Any, Optional
-from app.utils.logger import setup_logger
 import time
-from app.services.sql_generator import SQLGenerator
+from typing import Dict, Any, Optional
+
+from app.utils.logger import setup_logger
+from app.db.sql_generator import SQLGenerator
 from app.models.user import User
+from app.utils.prompt_generator import PromptGenerator
 
 
 logger = setup_logger(__name__)
@@ -13,17 +15,19 @@ class QAService:
         self.index_service = None
         self.url_service = None
         self.cache_service = None
-        self.lang_service = None
-        self.settings_service = None
 
-    def initialize(self, llm_service, index_service, url_service, cache_service, lang_service, settings_service):
+    def initialize(self, llm_service, index_service, url_service, cache_service):
         """Initialize with required services"""
         self.llm_service = llm_service
         self.index_service = index_service
         self.url_service = url_service
         self.cache_service = cache_service
-        self.lang_service = lang_service
-        self.settings_service = settings_service
+
+    async def close(self):
+        self.llm_service = None
+        self.index_service = None
+        self.url_service = None
+        self.cache_service = None
 
     async def get_answer(self, query: str, user: User) -> dict:
         """Get answer for the query"""
@@ -31,8 +35,6 @@ class QAService:
             start_time = time.time()
             logger.info(f"Processing question: '{query}' with model: {self.llm_service.current_provider}")
             
-            # Get current settings
-            settings = await self.settings_service.get_settings()
             
             # Use model type from settings if set
             if user.use_cloud:
@@ -52,7 +54,7 @@ class QAService:
             
             # 1. Handle URLs in question
             url_contents = []
-            if self.url_service and user.handle_urls:
+            if user.handle_urls and self.url_service:
                 urls = await self.url_service.extract_urls(query)
                 if urls:
                     logger.info(f"Found URLs in question: {urls}")
@@ -66,7 +68,7 @@ class QAService:
             
             # 2. Check if question needs DB access
             db_data = None
-            if self.llm_service and user.check_db:
+            if user.check_db and self.llm_service:
                 needs_db = await self.llm_service.is_db_question(query)
                 logger.info(f"Question requires DB access: {needs_db}")
                 if needs_db:
@@ -82,22 +84,16 @@ class QAService:
                 try:
                     doc_data = await self._get_document_data(query, str(user.id))
                     if doc_data:
-                        context = await self._build_context(doc_data, None, None)
                         source_nodes = doc_data['source_nodes']
                 except Exception as e:
                     logger.error(f"Error searching documents: {str(e)}")
             
             # 4. Combine all context sources
-            if url_contents:
-                context += "\n\nURL Context:\n" + "\n".join(url_contents)
-            if db_data:
-                context += f"\n\nDatabase Results:\n{db_data['results']}"
-                if db_data.get('sql_query'):
-                    context += f"\nSQL Query Used: {db_data['sql_query']}"
-            
+            context = await self._build_context(doc_data, url_contents, db_data)
+                        
             # 5. Format prompt with all context
             logger.info("Preparing prompt according question language...")
-            prompt = self.lang_service.format_prompt(
+            prompt = PromptGenerator.format_prompt(
                 question=query,
                 context=context
             )
@@ -161,7 +157,6 @@ class QAService:
                 schema=schema,
                 llm_service=container.llm_service
             )
-            await sql_generator.initialize()
             
             sql_query = await sql_generator.generate_query(question=question)
             logger.info(f"Generated SQL query: {sql_query}")
@@ -197,15 +192,14 @@ class QAService:
     ) -> str:
         """Build context text from all available sources"""
         context_parts = []
-        
-        if doc_data and doc_data.get('source_nodes'):
-            # Access the source_nodes from the dictionary
-            context_parts.append(' '.join([node['text'] for node in doc_data['source_nodes']]))
-        
+
+        if doc_data:
+                context_parts.append(' '.join([node['text'] for node in doc_data['source_nodes']]))
         if url_data:
-            context_parts.append('\n'.join(url_data.get('contents', [])))
-        
+                context_parts.append("\n\nURL Context:\n" + "\n".join(url_data.get('contents', [])))
         if db_data:
-            context_parts.append(f"Database Results: {db_data.get('results')}")
+                context_parts.append(f"\n\nDatabase Results:\n{db_data.get('results')}")
+                if db_data.get('sql_query'):
+                    context_parts.append(f"\nSQL Query Used: {db_data['sql_query']}")
         
         return '\n\n'.join(context_parts)

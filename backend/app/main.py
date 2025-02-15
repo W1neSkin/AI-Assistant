@@ -3,16 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import documents_router, health_router
 from app.api.settings import router as settings_router
 from app.core.config import settings
-from app.services.index_service import LlamaIndexService
-from app.llm.local_llm import LocalLLM
 from app.api.qa import router as qa_router
 from app.api.system import router as system_router
 from app.utils.logger import setup_logger
 from app.core.service_container import ServiceContainer
 from contextlib import asynccontextmanager
-from app.core.init_db import init_db
+from app.db.init_db import init_db
 from app.db.base import get_db, create_tables
 from app.api import auth
+from app.middleware.cors import add_cors_middleware
 
 logger = setup_logger(__name__)
 
@@ -37,16 +36,10 @@ async def lifespan(app: FastAPI):
         if 'db' in locals():
             await db.close()
 
-app = FastAPI(title="Document Q&A Bot", lifespan=lifespan)
+app = FastAPI(title="AI Assistant", lifespan=lifespan)
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add CORS middleware
+add_cors_middleware(app)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

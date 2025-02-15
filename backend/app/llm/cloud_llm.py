@@ -24,6 +24,12 @@ class CloudLLM(BaseLLM):
             logger.error(f"Failed to initialize Cloud LLM: {str(e)}")
             raise
 
+    async def close(self):
+        """Close cloud LLM client"""
+        if self.client:
+            await self.client.close()
+            self.client = None
+
     async def generate_answer(self, prompt: str) -> str:
         """Generate answer using Cloud API."""
         try:

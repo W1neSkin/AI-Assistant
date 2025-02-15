@@ -24,6 +24,12 @@ class LocalLLM(BaseLLM):
                 logger.error(f"LLM connection failed: {str(e)}")
                 raise
 
+    async def close(self):
+        """Close LLM connection"""
+        if self.initialized:
+            self.initialized = False
+            logger.info(f"LLM connection closed for model: {self.model_name}")
+
     async def generate_answer(self, prompt: str, max_tokens: int = 4096) -> str:
         try:
             logger.info(f"Generating answer with Local LLM model: {self.model_name}")
@@ -45,20 +51,3 @@ class LocalLLM(BaseLLM):
         except Exception as e:
             logger.error(f"Ollama API error: {str(e)}")
             raise
-
-    def estimate_tokens(self, text: str) -> int:
-        return int(len(text.encode('utf-8')) / 3)
-
-    def truncate_context(self, context: str, max_tokens: int) -> str:
-        sentences = context.split('. ')
-        truncated = []
-        current_tokens = 0
-        
-        for sentence in sentences:
-            tokens = self.estimate_tokens(sentence)
-            if current_tokens + tokens > max_tokens:
-                break
-            truncated.append(sentence)
-            current_tokens += tokens
-        
-        return '. '.join(truncated) 

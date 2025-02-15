@@ -3,7 +3,7 @@ from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-class LanguageService:
+class PromptGenerator:
     def is_russian(self, text: str) -> bool:
         """Check if text contains Russian characters."""
         try:
@@ -13,6 +13,7 @@ class LanguageService:
             logger.error(f"Error detecting language: {str(e)}")
             return False
 
+    @staticmethod
     def format_prompt(self, question: str, context: str) -> str:
         """Format prompt based on language."""
         # Extract different parts of context
@@ -53,3 +54,55 @@ class LanguageService:
                 f"Question: {question}\n\n"
                 f"Context: {formatted_context} [/INST]</s>"
             ) 
+    
+    @staticmethod
+    def format_prompt_for_sql(self, question: str, schema: str) -> str:
+        prompt = f"""
+        Given the following database schema:
+        {schema}
+
+        And this question:
+        {question}
+
+        Write a SQL query that answers this question.
+        Rules:
+        1. IMPORTANT: Return ONLY the SQL query - no explanations, no thinking steps, no markdown
+        2. ONLY use SELECT statements - no ALTER, DROP, DELETE, UPDATE, INSERT, or other modifying statements
+        3. Be safe and properly formatted
+        4. Use explicit column names (no SELECT *)
+        5. Include necessary JOINs and WHERE clauses
+        6. Return only the data needed to answer the question
+        7. Use proper SQL injection prevention practices
+        8. Keep the query simple and efficient
+
+        Format your response as a raw SQL query without any additional text or formatting.
+        BAD: "Here's the query: SELECT..."
+        BAD: ```sql SELECT...```
+        GOOD: SELECT...
+        """
+        return prompt
+    
+    @staticmethod
+    def format_prompt_for_is_question(self, question: str) -> str:
+        prompt = f"""Analyze if this question requires database access.
+        Return ONLY 'true' or 'false' without explanation.
+        
+        Guidelines:
+        - Database is needed for questions about specific records, statistics, or data analysis
+        - Database is NOT needed for general questions or document-based queries
+        - Consider keywords like: show, find, count, list, how many, average, total
+        
+        Examples:
+        - "Show me all clients from New York" -> true (requires database)
+        - "What is machine learning?" -> false (general knowledge)
+        - "How many orders were placed last month?" -> true (requires database)
+        - "Explain the company's privacy policy" -> false (document-based)
+        
+        Question: {question}
+        
+        Think step by step:
+        1. Identify key action words
+        2. Check if question asks for specific data
+        3. Determine if answer requires stored records
+        """
+        return prompt

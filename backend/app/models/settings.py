@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class UserSettings(BaseModel):
     use_cloud: bool = False
@@ -6,7 +6,7 @@ class UserSettings(BaseModel):
     handle_urls: bool = True
     check_db: bool = True
 
-    class Config:
+    model_config = ConfigDict(
         json_schema_extra = {
             "example": {
                 "use_cloud": False,
@@ -14,4 +14,6 @@ class UserSettings(BaseModel):
                 "handle_urls": True,
                 "check_db": True
             }
-        } 
+        }
+    )
+         

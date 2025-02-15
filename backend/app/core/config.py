@@ -1,6 +1,10 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Set
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Assistant API"
@@ -29,20 +33,18 @@ class Settings(BaseSettings):
     CACHE_TTL: int = 3600  # 1 hour
 
     # Database Settings
-    POSTGRES_USER: str = Field("dbuser", description="PostgreSQL username")
-    POSTGRES_PASSWORD: str = Field("dbpass", description="PostgreSQL password")
-    POSTGRES_DB: str = Field("customerdb", description="PostgreSQL database name")
+    POSTGRES_USER: str = Field("", description="PostgreSQL username")
+    POSTGRES_PASSWORD: str = Field("", description="PostgreSQL password")
+    POSTGRES_DB: str = Field("", description="PostgreSQL database name")
     POSTGRES_HOST: str = Field("postgres", description="PostgreSQL host")
     POSTGRES_PORT: int = Field(5432, description="PostgreSQL port")
+    DATABASE_URL: str = f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@postgres:5432/{os.getenv('POSTGRES_DB')}"
 
     # URL Settings
     URL_FETCH_TIMEOUT: int = Field(10, description="Timeout for URL fetching in seconds")
     MAX_URL_CONTENT_SIZE: int = Field(5 * 1024 * 1024, description="Max URL content size (5MB)")
     URL_CACHE_TTL: int = Field(3600, description="URL cache TTL in seconds")
 
-    # Database settings
-    DATABASE_URL: str = "postgresql://dbuser:dbpass@postgres:5432/customerdb"
-    
     # Frontend URL for CORS
     FRONTEND_URL: str = "http://localhost:3000"
     

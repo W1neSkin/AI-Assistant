@@ -1,9 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from app.core.config import settings
-from app.services.index_service import LlamaIndexService
 from app.utils.validators import FileValidator
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 from app.core.service_container import ServiceContainer
 from app.utils.logger import setup_logger
 from app.auth.deps import get_current_user
@@ -19,8 +17,8 @@ class DocumentResponse(BaseModel):
     id: str
     filename: str
     active: bool
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 @router.post("/documents/upload")
 async def upload_document(
