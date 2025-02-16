@@ -58,6 +58,15 @@ class DatabaseService:
             await self._pool.close()
             logger.info("Database connection pool closed")
 
+    async def get_session(self):
+        """Get a database session."""
+        logger.info("Getting database session")
+        async with self.async_session() as session:
+            try:
+                yield session
+            finally:
+                await session.close()
+
     async def get_schema(self) -> str:
         """Get database schema"""
         try:

@@ -78,3 +78,10 @@ class ServiceContainer:
     def is_initialized(self) -> bool:
         """Check if all services are initialized"""
         return self._initialized
+    
+    def get_db_service(self) -> DatabaseService:
+        """Get the database service"""
+        logger.info("Getting database service")
+        if not self.db_service:
+            raise RuntimeError("Database service not initialized")
+        return self.db_service
