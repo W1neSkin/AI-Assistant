@@ -165,10 +165,21 @@ class LlamaIndexService:
             
             if not users:
                 # No users left, delete document completely
-                await self._delete_document(doc_id)
+                self.vector_store.delete(
+                    filter=MetadataFilters(filters=[
+                        ExactMatchFilter(key="doc_id", value=doc_id)
+                    ])
+                )
             else:
                 # Update users list
-                await self._update_document_users(doc_id, users)
+                self.vector_store.update(
+                    filter=MetadataFilters(filters=[
+                        ExactMatchFilter(key="doc_id", value=doc_id)
+                    ]),
+                    update={
+                        "users": users
+                    }
+                )
 
     async def get_user_documents(self, user_id: str) -> List[Dict]:
         """Get list of user's documents"""
