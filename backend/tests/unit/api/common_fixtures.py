@@ -1,10 +1,10 @@
 import pytest
 
 
-#Fake DB Service and Session for Testing
-class FakeSession:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
+#Mock DB Service and Session for Testing
+class MockSession:
+    def __init__(self, mock_db: dict):
+        self.mock_db = mock_db
 
     async def scalar(self, query):
         """
@@ -21,24 +21,24 @@ class FakeSession:
                 username = clause.right.value
             except AttributeError:
                 username = clause.right
-        return self.fake_db.get(username)
+        return self.mock_db.get(username)
     
     async def commit(self):
-        # No operation needed for fake commit
+        # No operation needed for mock commit
         pass
 
     async def refresh(self, user):
-        # No operation needed for fake refresh
+        # No operation needed for mock refresh
         pass
 
     def add(self, user):
-        # Simply store the user in the fake DB (dict) keyed by username
-        self.fake_db[user.username] = user
+        # Simply store the user in the mock DB (dict) keyed by username
+        self.mock_db[user.username] = user
 
-class FakeSessionContext:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-        self.session = FakeSession(fake_db)
+class MockSessionContext:
+    def __init__(self, mock_db: dict):
+        self.mock_db = mock_db
+        self.session = MockSession(mock_db)
 
     async def __aenter__(self):
         return self.session
@@ -46,15 +46,15 @@ class FakeSessionContext:
     async def __aexit__(self, exc_type, exc, tb):
         pass
 
-class FakeDBService:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
+class MockDBService:
+    def __init__(self, mock_db: dict):
+        self.mock_db = mock_db
 
     def async_session(self):
-        return FakeSessionContext(self.fake_db)
+        return MockSessionContext(self.mock_db)
 
-# Fake User for Testing Settings Endpoints
-class FakeUser:
+# Mock User for Testing Settings Endpoints
+class MockUser:
     def __init__(self):
         self.id = "test_user_id"
         self.username = "testuser"
@@ -63,18 +63,18 @@ class FakeUser:
         self.handle_urls = True
         self.check_db = False
 
-# Fake QA Service for a successful response
-class FakeQAService:
+# Mock QA Service for a successful response
+class MockQAService:
     async def get_answer(self, query, user):
         return {"answer": f"Answer for '{query}'", "username": user.username}
 
-# Fake QA Service that raises an error
-class FakeQAServiceError:
+# Mock QA Service that raises an error
+class MockQAServiceError:
     async def get_answer(self, query, user):
-        raise Exception("Fake error")
+        raise Exception("Mock error")
 
-# Fake index service to simulate document operations
-class FakeIndexService:
+# Mock index service to simulate document operations
+class MockIndexService:
     def __init__(self):
         self.documents = {}
 
@@ -112,18 +112,18 @@ class FakeIndexService:
         else:
             raise Exception("Document not found")
         
-# Fake LLM Service for Testing
-class FakeLLMService:
+# Mock LLM Service for Testing
+class MockLLMService:
     async def change_provider(self, provider: str):
         # For a successful case, simply store the provider
         self.provider = provider
 
-# Fake container to mimic ServiceContainer
-class FakeServiceContainer:
+# Mock container to mimic ServiceContainer
+class MockServiceContainer:
     def __init__(self, qa_service=None, llm_service=None, index_service=None):
-        self.qa_service = qa_service if qa_service is not None else FakeQAService()
-        self.llm_service = llm_service if llm_service is not None else FakeLLMService()
-        self.index_service = index_service if index_service is not None else FakeIndexService()
+        self.qa_service = qa_service if qa_service is not None else MockQAService()
+        self.llm_service = llm_service if llm_service is not None else MockLLMService()
+        self.index_service = index_service if index_service is not None else MockIndexService()
 
     async def initialize(self):
         # Do nothing for initialization in tests
@@ -131,22 +131,22 @@ class FakeServiceContainer:
 
     @classmethod
     def get_instance(cls):
-        # This method will be overridden to return our fake container.
+        # This method will be overridden to return our mock container.
         # (The override is done in the app fixture below.)
         pass
 
 
-def fake_get_current_user():
-    return FakeUser()
+def mock_get_current_user():
+    return MockUser()
 
 # --- Pytest Fixtures ---
 
 @pytest.fixture
-def fake_db():
+def mock_db():
     # Our in-memory "database"
     return {}
 
 @pytest.fixture
-def fake_user():
-    # Return a single fake user instance
-    return FakeUser()
+def mock_user():
+    # Return a single mock user instance
+    return MockUser()

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.api.system import router as system_router
 from app.core.config import settings
 from app.core.service_container import ServiceContainer
-from tests.unit.api.common_fixtures import FakeServiceContainer
+from tests.unit.api.common_fixtures import MockServiceContainer
 
 
 # --- Pytest Fixtures for App and Client ---
@@ -40,11 +40,11 @@ def test_switch_provider_success(monkeypatch, client):
     """
     Test switching the provider successfully.
     """
-    fake_container = FakeServiceContainer()
+    mock_container = MockServiceContainer()
     
-    async def fake_get_instance():
-        return fake_container
-    monkeypatch.setattr(ServiceContainer, "get_instance", fake_get_instance)
+    async def mock_get_instance():
+        return mock_container
+    monkeypatch.setattr(ServiceContainer, "get_instance", mock_get_instance)
     
     payload = {"provider": "cloud"}
     response = client.post("/switch-provider", json=payload)
@@ -59,11 +59,11 @@ def test_switch_provider_missing_provider(monkeypatch, client):
     Note: due to the try/except block in the endpoint, the missing provider
     is caught and re-raised as a 500 error.
     """
-    fake_container = FakeServiceContainer()
+    mock_container = MockServiceContainer()
     
-    async def fake_get_instance():
-        return fake_container
-    monkeypatch.setattr(ServiceContainer, "get_instance", fake_get_instance)
+    async def mock_get_instance():
+        return mock_container
+    monkeypatch.setattr(ServiceContainer, "get_instance", mock_get_instance)
     
     payload = {}  # Missing the provider field
     response = client.post("/switch-provider", json=payload)

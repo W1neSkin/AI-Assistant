@@ -8,18 +8,18 @@ from app.dependencies import get_db_service
 from app.models.user import User
 from app.utils.security import get_password_hash
 from tests.unit.api.common_fixtures import (
-    FakeDBService,
-    fake_db
+    MockDBService,
+    mock_db
 )
 
 
 # Pytest fixtures to configure our FastAPI app and dependency override
 @pytest.fixture
-def app(fake_db):
+def app(mock_db):
     app = FastAPI()
     app.include_router(auth_router, prefix="/auth")
-    # Override the get_db_service dependency so that the auth routes use our fake DB service.
-    app.dependency_overrides[get_db_service] = lambda: FakeDBService(fake_db)
+    # Override the get_db_service dependency so that the auth routes use our mock DB service.
+    app.dependency_overrides[get_db_service] = lambda: MockDBService(mock_db)
     yield app
     app.dependency_overrides.clear()
 
@@ -29,10 +29,10 @@ def client(app):
 
 
 # Tests for the auth routes
-def test_login_success(client, fake_db):
+def test_login_success(client, mock_db):
     """
     Test for a successful login.
-    Pre-populate the fake DB with a test user whose password is 'secret'.
+    Pre-populate the mock DB with a test user whose password is 'secret'.
     """
     password = "secret"
     hashed = get_password_hash(password)
@@ -44,7 +44,7 @@ def test_login_success(client, fake_db):
         handle_urls=True,
         check_db=True
     )
-    fake_db["testuser"] = test_user
+    mock_db["testuser"] = test_user
 
     payload = {
         "username": "testuser",
@@ -57,7 +57,7 @@ def test_login_success(client, fake_db):
     assert "access_token" in data
     assert "refresh_token" in data
 
-def test_login_failure_wrong_password(client, fake_db):
+def test_login_failure_wrong_password(client, mock_db):
     """
     Test for a failed login due to incorrect password.
     """
@@ -71,7 +71,7 @@ def test_login_failure_wrong_password(client, fake_db):
         handle_urls=True,
         check_db=True
     )
-    fake_db["testuser"] = test_user
+    mock_db["testuser"] = test_user
 
     payload = {
         "username": "testuser",
@@ -83,10 +83,10 @@ def test_login_failure_wrong_password(client, fake_db):
     data = response.json()
     assert data["detail"] == "Incorrect username or password"
 
-def test_register_success(client, fake_db):
+def test_register_success(client, mock_db):
     """
     Test successful registration of a new user.
-    After registration, the fake DB should contain the new user.
+    After registration, the mock DB should contain the new user.
     """
     payload = {
         "username": "newuser",
@@ -101,13 +101,13 @@ def test_register_success(client, fake_db):
     assert response.status_code == 201, response.text
     data = response.json()
     assert data["message"] == "User created successfully"
-    # Verify that the new user was added to the fake DB
-    assert "newuser" in fake_db
-    new_user = fake_db["newuser"]
+    # Verify that the new user was added to the mock DB
+    assert "newuser" in mock_db
+    new_user = mock_db["newuser"]
     # Ensure that the password is hashed (i.e. not equal to the plain password)
     assert new_user.hashed_password != "password123"
 
-def test_register_failure_existing_user(client, fake_db):
+def test_register_failure_existing_user(client, mock_db):
     """
     Test registration failure when a user with the given username already exists.
     """
@@ -121,7 +121,7 @@ def test_register_failure_existing_user(client, fake_db):
         handle_urls=False,
         check_db=False
     )
-    fake_db["existinguser"] = existing_user
+    mock_db["existinguser"] = existing_user
 
     payload = {
         "username": "existinguser",
@@ -137,7 +137,7 @@ def test_register_failure_existing_user(client, fake_db):
     data = response.json()
     assert data["detail"] == "Username already registered"
 
-def test_register_failure_password_mismatch(client, fake_db):
+def test_register_failure_password_mismatch(client, mock_db):
     """
     Test registration failure when the provided passwords do not match.
     """

@@ -11,22 +11,22 @@ from app.auth.deps import get_current_user
 # Also override the ServiceContainer dependency.
 from app.core.service_container import ServiceContainer
 from tests.unit.api.common_fixtures import (
-    FakeServiceContainer,
-    fake_get_current_user
+    MockServiceContainer,
+    mock_get_current_user
 )
 
 
 @pytest.fixture
-def fake_container():
-    return FakeServiceContainer()
+def mock_container():
+    return MockServiceContainer()
 
 @pytest.fixture
-def app(fake_container):
+def app(mock_container):
     app = FastAPI()
-    # Override the get_current_user dependency with our fake
-    app.dependency_overrides[get_current_user] = fake_get_current_user
-    # Override ServiceContainer.get_instance to use our fresh fake container
-    app.dependency_overrides[ServiceContainer.get_instance] = lambda: fake_container
+    # Override the get_current_user dependency with our mock
+    app.dependency_overrides[get_current_user] = mock_get_current_user
+    # Override ServiceContainer.get_instance to use our fresh mock container
+    app.dependency_overrides[ServiceContainer.get_instance] = lambda: mock_container
     # Create a new router with reordered routes to ensure /clear is matched before /{doc_id}
     new_router = APIRouter()
     new_router.add_api_route("/documents/clear", clear_documents, methods=["DELETE"])
@@ -43,33 +43,33 @@ def client(app):
 
 # --- Unit Tests for Documents Router ---
 
-def test_upload_document_success(client, fake_container):
+def test_upload_document_success(client, mock_container):
     # Clear any previous entries
-    fake_container.index_service.documents.clear()
+    mock_container.index_service.documents.clear()
     file_content = b"Test file content"
     files = {"file": ("test.txt", file_content, "text/plain")}
     response = client.post("/documents/upload", files=files)
     assert response.status_code == 200, response.text
     data = response.json()
     assert "id" in data
-    # Verify that the document was added to the fake index service
+    # Verify that the document was added to the mock index service
     doc_id = data["id"]
-    assert doc_id in fake_container.index_service.documents
-    uploaded_doc = fake_container.index_service.documents[doc_id]
+    assert doc_id in mock_container.index_service.documents
+    uploaded_doc = mock_container.index_service.documents[doc_id]
     assert uploaded_doc["filename"] == "test.txt"
 
-def test_list_documents_empty(client, fake_container):
-    fake_container.index_service.documents.clear()
+def test_list_documents_empty(client, mock_container):
+    mock_container.index_service.documents.clear()
     response = client.get("/documents/list")
     assert response.status_code == 200, response.text
     data = response.json()
     assert isinstance(data, list)
     assert len(data) == 0
 
-def test_list_documents_with_document(client, fake_container):
-    # Pre-populate with a document for the fake user
-    fake_container.index_service.documents.clear()
-    fake_container.index_service.documents["doc1"] = {
+def test_list_documents_with_document(client, mock_container):
+    # Pre-populate with a document for the mock user
+    mock_container.index_service.documents.clear()
+    mock_container.index_service.documents["doc1"] = {
         "content": b"dummy",
         "filename": "dummy.txt",
         "user_id": "test_user_id",
@@ -83,9 +83,9 @@ def test_list_documents_with_document(client, fake_container):
     assert data[0]["id"] == "doc1"
     assert data[0]["filename"] == "dummy.txt"
 
-def test_delete_document_success(client, fake_container):
-    fake_container.index_service.documents.clear()
-    fake_container.index_service.documents["doc1"] = {
+def test_delete_document_success(client, mock_container):
+    mock_container.index_service.documents.clear()
+    mock_container.index_service.documents["doc1"] = {
         "content": b"dummy",
         "filename": "dummy.txt",
         "user_id": "test_user_id",
@@ -96,24 +96,24 @@ def test_delete_document_success(client, fake_container):
     data = response.json()
     assert data.get("status") == "success"
     # Verify that the document is removed
-    assert "doc1" not in fake_container.index_service.documents
+    assert "doc1" not in mock_container.index_service.documents
 
-def test_clear_documents_success(client, fake_container):
-    fake_container.index_service.documents.clear()
+def test_clear_documents_success(client, mock_container):
+    mock_container.index_service.documents.clear()
     # Add documents: two for test user and one for another user
-    fake_container.index_service.documents["doc1"] = {
+    mock_container.index_service.documents["doc1"] = {
         "content": b"A",
         "filename": "a.txt",
         "user_id": "test_user_id",
         "active": True
     }
-    fake_container.index_service.documents["doc2"] = {
+    mock_container.index_service.documents["doc2"] = {
         "content": b"B",
         "filename": "b.txt",
         "user_id": "test_user_id",
         "active": True
     }
-    fake_container.index_service.documents["doc3"] = {
+    mock_container.index_service.documents["doc3"] = {
         "content": b"C",
         "filename": "c.txt",
         "user_id": "other_user",
@@ -124,13 +124,13 @@ def test_clear_documents_success(client, fake_container):
     data = response.json()
     assert data.get("status") == "success"
     # Only the document for the other user should remain
-    assert "doc1" not in fake_container.index_service.documents
-    assert "doc2" not in fake_container.index_service.documents
-    assert "doc3" in fake_container.index_service.documents
+    assert "doc1" not in mock_container.index_service.documents
+    assert "doc2" not in mock_container.index_service.documents
+    assert "doc3" in mock_container.index_service.documents
 
-def test_update_document_status_success(client, fake_container):
-    fake_container.index_service.documents.clear()
-    fake_container.index_service.documents["doc1"] = {
+def test_update_document_status_success(client, mock_container):
+    mock_container.index_service.documents.clear()
+    mock_container.index_service.documents["doc1"] = {
         "content": b"dummy",
         "filename": "dummy.txt",
         "user_id": "test_user_id",
@@ -142,11 +142,11 @@ def test_update_document_status_success(client, fake_container):
     data = response.json()
     assert data.get("status") == "success"
     # Verify the update of the document status
-    assert fake_container.index_service.documents["doc1"]["active"] is False
+    assert mock_container.index_service.documents["doc1"]["active"] is False
 
-def test_delete_document_not_found(client, fake_container):
+def test_delete_document_not_found(client, mock_container):
     """Test deleting a non-existent document"""
-    fake_container.index_service.documents.clear()
+    mock_container.index_service.documents.clear()
     response = client.delete("/documents/nonexistent")
     assert response.status_code == 500
     assert response.json()["detail"] == "Document not found" 
