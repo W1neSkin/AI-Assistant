@@ -121,42 +121,24 @@ WEAVIATE_URL=http://weaviate:8080
 
 The project includes comprehensive test suites:
 - Unit tests
-- Integration tests
-- Vector store tests
 
 ### Running Tests
 
-Use the test runner script:
-
+Use pytest to run the tests:
 ```bash
-# Run all tests
-python run_tests.py
-
-# Run unit tests with coverage
-python run_tests.py --type unit --coverage
-
-# Run integration tests verbosely
-python run_tests.py --type integration --verbose
-
-# Clean and run all tests with coverage
-python run_tests.py --clean --coverage
+pytest
 ```
 
 ### Test Options
 
-- `--type`: Choose test type (`all`, `unit`, `integration`)
-- `--coverage`: Generate coverage report
-- `--verbose`: Show detailed output
-- `--clean`: Clean test artifacts before running
 
 ### Test Structure
 
 ```
 backend/tests/
-├── unit/               # Unit tests
-├── integration/        # Integration tests
-├── mocks/             # Mock objects
-└── test_files/        # Test data files
+└── unit/               # Unit tests
+    ├── api/            # API tests
+    └── services/       # Service tests
 ```
 
 ## Production Considerations
