@@ -2,7 +2,6 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.core.service_container import ServiceContainer
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.core.jwt import create_access_token, create_refresh_token

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, HTTPException, Depends
 from app.core.config import settings
 from app.utils.validators import FileValidator
 from pydantic import BaseModel, ConfigDict
