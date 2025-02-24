@@ -10,71 +10,15 @@ from app.api.documents import clear_documents  # Import the actual endpoint func
 from app.auth.deps import get_current_user  
 # Also override the ServiceContainer dependency.
 from app.core.service_container import ServiceContainer
+from tests.unit.api.common_fixtures import (
+    FakeServiceContainer,
+    fake_get_current_user
+)
 
-# --- Fake Dependencies for Testing ---
-
-# Fake user to simulate authentication
-class FakeUser:
-    id = "test_user_id"
-
-def fake_get_current_user():
-    return FakeUser()
-
-# Fake index service to simulate document operations
-class FakeIndexService:
-    def __init__(self):
-        self.documents = {}
-
-    async def index_document(self, content, filename, user_id):
-        # Create a simple doc id
-        doc_id = f"doc{len(self.documents) + 1}"
-        self.documents[doc_id] = {
-            "content": content,
-            "filename": filename,
-            "user_id": user_id,
-            "active": True
-        }
-        return doc_id
-
-    async def get_user_documents(self, user_id):
-        return [
-            {"id": key, "filename": doc["filename"], "active": doc["active"]}
-            for key, doc in self.documents.items() if doc["user_id"] == user_id
-        ]
-
-    async def delete_document(self, doc_id, user_id):
-        if doc_id in self.documents and self.documents[doc_id]["user_id"] == user_id:
-            del self.documents[doc_id]
-        else:
-            raise Exception("Document not found")
-
-    async def clear_user_documents(self, user_id):
-        self.documents = {
-            k: v for k, v in self.documents.items() if v["user_id"] != user_id
-        }
-
-    async def update_document_status(self, doc_id, active):
-        if doc_id in self.documents:
-            self.documents[doc_id]["active"] = active
-        else:
-            raise Exception("Document not found")
-
-# Fake service container to wrap our FakeIndexService
-class FakeServiceContainer:
-    def __init__(self):
-        self.index_service = FakeIndexService()
-
-    @classmethod
-    def get_instance(cls):
-        # This method will be overridden to return our fake container.
-        # (The override is done in the app fixture below.)
-        pass
 
 @pytest.fixture
 def fake_container():
     return FakeServiceContainer()
-
-# --- Pytest Fixtures to Build the Test App ---
 
 @pytest.fixture
 def app(fake_container):

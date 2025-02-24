@@ -7,67 +7,13 @@ from app.api.auth import router as auth_router
 from app.dependencies import get_db_service
 from app.models.user import User
 from app.utils.security import get_password_hash
+from tests.unit.api.common_fixtures import (
+    FakeDBService,
+    fake_db
+)
 
-# ---------------------------------------------------------------------------
-# Fake database classes to override the DB dependency in tests
-# ---------------------------------------------------------------------------
-class FakeSession:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
 
-    async def scalar(self, query):
-        """
-        Since the auth endpoints always use a query like:
-            select(User).where(User.username == some_value)
-        we try to extract the username value from the first where clause.
-        """
-        username = None
-        criteria = getattr(query, "_where_criteria", None)
-        if criteria:
-            clause = list(criteria)[0]
-            try:
-                # If clause.right is a bind parameter, use its .value
-                username = clause.right.value
-            except AttributeError:
-                username = clause.right
-        return self.fake_db.get(username)
-
-    def add(self, user: User):
-        self.fake_db[user.username] = user
-
-    async def commit(self):
-        # In our fake implementation, commit doesn't do anything.
-        pass
-
-class FakeSessionContext:
-    """
-    This class acts as an async context manager returning a FakeSession.
-    """
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-        self.session = FakeSession(self.fake_db)
-
-    async def __aenter__(self):
-        return self.session
-
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-
-class FakeDBService:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-
-    def async_session(self):
-        return FakeSessionContext(self.fake_db)
-
-# ---------------------------------------------------------------------------
 # Pytest fixtures to configure our FastAPI app and dependency override
-# ---------------------------------------------------------------------------
-@pytest.fixture
-def fake_db():
-    # This will act as our in-memory "database" (a dict mapping usernames to User instances)
-    return {}
-
 @pytest.fixture
 def app(fake_db):
     app = FastAPI()
@@ -81,9 +27,8 @@ def app(fake_db):
 def client(app):
     return TestClient(app)
 
-# ---------------------------------------------------------------------------
+
 # Tests for the auth routes
-# ---------------------------------------------------------------------------
 def test_login_success(client, fake_db):
     """
     Test for a successful login.

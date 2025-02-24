@@ -4,43 +4,23 @@ from fastapi.testclient import TestClient
 from app.api.qa import router as qa_router
 from app.auth.deps import get_current_user
 from app.core.service_container import ServiceContainer
+from tests.unit.api.common_fixtures import (
+    FakeQAService,
+    FakeQAServiceError,
+    FakeServiceContainer,
+    fake_get_current_user
+)
 
-# --- Fake dependencies for testing ---
-
-class FakeUser:
-    username = "testuser"
-
-def fake_get_current_user():
-    return FakeUser()
-
-# Fake QA Service for a successful response
-class FakeQAService:
-    async def get_answer(self, query, user):
-        return {"answer": f"Answer for '{query}'", "username": user.username}
-
-# Fake QA Service that raises an error
-class FakeQAServiceError:
-    async def get_answer(self, query, user):
-        raise Exception("Fake error")
-
-# Fake container to mimic ServiceContainer
-class FakeServiceContainer:
-    def __init__(self, qa_service):
-        self.qa_service = qa_service
-
-    async def initialize(self):
-        # Do nothing for initialization in tests
-        pass
 
 # Pytest fixture for a container with a working QA service
 @pytest.fixture
 def fake_container_success():
-    return FakeServiceContainer(FakeQAService())
+    return FakeServiceContainer(qa_service=FakeQAService())
 
 # Pytest fixture for a container with a failing QA service
 @pytest.fixture
 def fake_container_error():
-    return FakeServiceContainer(FakeQAServiceError())
+    return FakeServiceContainer(qa_service=FakeQAServiceError())
 
 # --- Set up the test application with dependency overrides ---
 

@@ -5,21 +5,8 @@ from fastapi.testclient import TestClient
 from app.api.system import router as system_router
 from app.core.config import settings
 from app.core.service_container import ServiceContainer
+from tests.unit.api.common_fixtures import FakeServiceContainer
 
-# --- Fake LLM Service and Container for Testing ---
-
-class FakeLLMService:
-    async def change_provider(self, provider: str):
-        # For a successful case, simply store the provider
-        self.provider = provider
-
-class FakeServiceContainer:
-    def __init__(self, llm_service=None):
-        self.llm_service = llm_service if llm_service is not None else FakeLLMService()
-
-    async def initialize(self):
-        # In tests, no further initialization is needed.
-        pass
 
 # --- Pytest Fixtures for App and Client ---
 

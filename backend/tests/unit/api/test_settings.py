@@ -6,64 +6,11 @@ from fastapi.testclient import TestClient
 from app.api.settings import router as settings_router
 from app.dependencies import get_db_service
 from app.auth.deps import get_current_user
-
-# --- Fake DB Service and Session for Testing ---
-
-class FakeSession:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-
-    async def commit(self):
-        # No operation needed for fake commit
-        pass
-
-    async def refresh(self, user):
-        # No operation needed for fake refresh
-        pass
-
-    def add(self, user):
-        # Simply store the user in the fake DB (dict) keyed by username
-        self.fake_db[user.username] = user
-
-class FakeSessionContext:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-        self.session = FakeSession(fake_db)
-
-    async def __aenter__(self):
-        return self.session
-
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-
-class FakeDBService:
-    def __init__(self, fake_db: dict):
-        self.fake_db = fake_db
-
-    def async_session(self):
-        return FakeSessionContext(self.fake_db)
-
-# --- Fake User for Testing Settings Endpoints ---
-
-class FakeUser:
-    def __init__(self):
-        self.username = "testuser"
-        self.use_cloud = True
-        self.enable_document_search = False
-        self.handle_urls = True
-        self.check_db = False
-
-# --- Pytest Fixtures ---
-
-@pytest.fixture
-def fake_db():
-    # Our in-memory "database"
-    return {}
-
-@pytest.fixture
-def fake_user():
-    # Return a single fake user instance
-    return FakeUser()
+from tests.unit.api.common_fixtures import (
+    FakeDBService,
+    fake_db,
+    fake_user
+)
 
 @pytest.fixture
 def app(fake_db, fake_user):
