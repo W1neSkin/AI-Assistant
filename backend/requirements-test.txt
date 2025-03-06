@@ -3,3 +3,5 @@ pytest-asyncio
 requests 
 pyjwt
 pytest-cov
+httpx
+aiosqlite

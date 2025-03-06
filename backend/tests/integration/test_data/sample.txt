@@ -1,0 +1,3 @@
+This is a sample document for testing.
+It contains information about integration testing.
+Integration tests verify that different components work together correctly.
