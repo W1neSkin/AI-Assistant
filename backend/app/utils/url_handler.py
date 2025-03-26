@@ -16,7 +16,9 @@ class URLHandler:
         
     def extract_urls(self, text: str) -> list[str]:
         """Extract URLs from text."""
-        url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        # More precise URL regex pattern that avoids suspicious character ranges
+        # This pattern uses specific character classes for different parts of a URL
+        url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
         return re.findall(url_pattern, text)
     
     def _generate_cache_key(self, url: str) -> str:
