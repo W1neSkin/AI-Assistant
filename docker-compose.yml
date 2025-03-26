@@ -28,6 +28,39 @@ services:
       - weaviate
       - ollama
 
+  mcp-server:
+    container_name: mcp-server
+    build:
+      context: ./backend/mcp_server
+      dockerfile: Dockerfile
+    # restart: always
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend/mcp_server:/app
+    environment:
+      - PYTHONPATH=/app
+      - DEBUG_MODE=true
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - WEAVIATE_URL=http://weaviate:8080
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+      - redis
+      - weaviate
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   weaviate:
     container_name: weaviate
     image: cr.weaviate.io/semitechnologies/weaviate:1.28.4    

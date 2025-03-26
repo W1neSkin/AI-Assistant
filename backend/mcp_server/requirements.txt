@@ -1,0 +1,5 @@
+# uv
+uv
+
+# MCP dependencies
+mcp[cli]>=1.5.0
